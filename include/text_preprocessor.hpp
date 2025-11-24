@@ -2,12 +2,11 @@
 #define TEXT_PREPROCESSOR_HPP
 
 #include <string>
+#include <algorithm>
 
 namespace text_preprocessor
 {
-    void replaceSymbols(std::string &text, char from, char to);
-    void toLowercase(std::string &text);
-
+    void removeSymbols(std::string &text, const std::string &symbols);
     void preprocessText(std::string &text);
 }
 
