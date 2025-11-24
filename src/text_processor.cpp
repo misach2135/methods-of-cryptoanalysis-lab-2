@@ -1,4 +1,4 @@
-#include "text_preprocessor.hpp"
+#include "text_processor.hpp"
 
 void text_preprocessor::removeSymbols(std::string &text, const std::string &symbols)
 {
