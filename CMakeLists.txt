@@ -9,6 +9,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(lab2)
 
-target_include_directories(include/)
+target_include_directories(lab2 PRIVATE include/)
 
-target_sources(lab2 PRIVATE src/main.cpp)
+target_sources(lab2 PRIVATE src/main.cpp src/text_processor.cpp)

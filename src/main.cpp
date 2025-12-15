@@ -1,11 +1,25 @@
 #include <iostream>
+#include <fstream>
+#include <sstream>
 
-using namespace std;
+#include "text_processor.hpp"
 
 // TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
 
-int main()
+int main(int argc, char *argv[])
 {
-    std::cout << "Hello world!" << std::endl;
+    std::ifstream f(argv[1]);
+    std::stringstream buff;
+
+    std::cout << argv[1] << std::endl;
+
+    buff << f.rdbuf();
+
+    std::string origin_text = buff.str();
+
+    text_processor::preprocessText(origin_text);
+
+    std::cout << origin_text << std::endl;
+
     return 0;
 }
