@@ -4,34 +4,44 @@
 #include <clocale>
 
 #include "text_processor.hpp"
+#include "encoding.hpp"
 
 // TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
 
 int main(int argc, char *argv[])
 {
-    std::setlocale(LC_ALL, "cp-1251");
+    // if (argc < 2)
+    // {
+    //     std::cerr << "Missing filename in args" << std::endl;
+    //     return -1;
+    // }
 
-    if (argc < 2)
-    {
-        std::cerr << "Missing filename in args" << std::endl;
-        return -1;
-    }
+    // const std::string_view filename = std::string_view(argv[1]);
 
-    std::ifstream f(argv[1]);
-    std::stringstream buff;
+    // std::ifstream f(filename.data());
 
-    std::cout << "Hello world" << std::endl;
-    std::cout << argv[1] << std::endl;
+    // if (f.fail())
+    // {
+    //     std::cerr << "Failed to open the file: " << filename << std::endl;
+    //     return -1;
+    // }
 
-    buff << f.rdbuf();
+    // std::stringstream buff;
 
-    std::string origin_text = buff.str();
+    // buff << f.rdbuf();
 
-    std::cout << origin_text << std::endl;
+    // std::string origin_text = buff.str();
 
-    text_processor::preprocessText(origin_text);
+    // std::cout << origin_text << std::endl;
 
-    std::cout << "Origin test: " << origin_text << std::endl;
+    // text_processor::preprocessText(origin_text);
+
+    // std::cout << "Origin test: " << origin_text << std::endl;
+
+    const char codepoint[2] = {char(0xd0), char(0x91)};
+    // const char codepoint[2] = {char(0x1), char(0x0)};
+
+    std::cout << convert_cp1251_to_utf8(convert_utf8_to_cp1251(0xd091)) << std::endl;
 
     return 0;
 }
