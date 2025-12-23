@@ -14,8 +14,6 @@ uint8_t convert_utf8_to_cp1251(uint16_t);
 uint16_t convert_cp1251_to_utf8(uint8_t);
 uint8_t convert_letter_utf16_to_cp1251(uint16_t);
 
-std::string_view::iterator next_utf8_char(
-    std::string_view sv,
-    std::string_view::iterator it);
+std::optional<std::tuple<std::string_view::iterator, uint16_t>> next_utf8_char(std::string_view::const_iterator it, std::string_view::const_iterator end);
 
 #endif

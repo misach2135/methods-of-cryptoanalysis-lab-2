@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <bitset>
+#include <optional>
 
 // C - char in little-endian byte order
 uint8_t convert_utf8_to_cp1251(uint16_t c)
@@ -39,7 +40,39 @@ uint8_t convert_letter_utf16_to_cp1251(uint16_t c)
     return uint8_t((c - UTF16BE_CYRILLIC_CAPITAL_A) + CP1251_CYRILLIC_CAPITAL_A);
 }
 
-std::string_view::iterator next_utf8_char(std::string_view sv, std::string_view::iterator it)
+std::optional<std::tuple<std::string_view::iterator, uint16_t>> next_utf8_char(std::string_view::const_iterator it, std::string_view::const_iterator end)
 {
-    return std::string_view::iterator();
+    if (it == end)
+        return std::nullopt;
+
+    if (*it <= 0x7f)
+    {
+        return std::make_tuple(it + 1, *it);
+    }
+    if (*it & 0b11000000)
+    {
+        if (end - it < 2)
+            return std::nullopt;
+        uint16_t c0 = *it & 0b00011111;
+        uint16_t c1 = *(it + 1) & 0b00111111;
+
+        uint16_t utf16_symbol = (c0 << 5) | c1;
+
+        return std::make_tuple(it + 2, utf16_symbol);
+    }
+    if (*it & 0b11100000)
+    {
+        if (end - it < 3)
+            return std::nullopt;
+        // Currently, not supported
+        return std::make_tuple(it + 3, 0);
+    }
+    if (*it & 0b11110000)
+    {
+        if (end - it < 4)
+            return std::nullopt;
+        // Currently, not supported
+        return std::make_tuple(it + 4, 0);
+    }
+    return std::nullopt;
 }
