@@ -4,6 +4,8 @@
 #include <string>
 #include <algorithm>
 
+#include "encoding.hpp"
+
 namespace text_processor
 {
     void removeSymbols(std::string &text, const std::string &symbols);
