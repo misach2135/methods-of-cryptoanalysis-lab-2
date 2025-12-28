@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace lab2 {
 
@@ -14,6 +15,8 @@ extern const uint16_t UKR_H_LETTER;
 extern const char32_t* UKRAINIAN_ALPHABET;
 
 std::string prepareText(std::string text);
+std::string bytesToCyrillicText(std::vector<uint8_t> bytes);
+std::vector<uint8_t> cyrillicTextToBytes(std::string text);
 
 }  // namespace lab2
 
