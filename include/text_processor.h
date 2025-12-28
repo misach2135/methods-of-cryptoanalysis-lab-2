@@ -13,7 +13,7 @@ extern const uint16_t UKR_G_LETTER;
 extern const uint16_t UKR_H_LETTER;
 extern const char32_t* UKRAINIAN_ALPHABET;
 
-std::string processText(std::string text);
+std::string prepareText(std::string text);
 
 }  // namespace lab2
 

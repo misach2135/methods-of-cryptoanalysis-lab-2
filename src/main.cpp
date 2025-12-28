@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
   std::string input_text(size, '\0');
   file.read(input_text.data(), size);
 
-  std::string test = lab2::processText(input_text);
+  std::string test = lab2::prepareText(input_text);
   std::cout << test << std::endl;
   return 0;
 }

@@ -13,7 +13,7 @@ const char32_t* lab2::UKRAINIAN_ALPHABET = U"абвгдеєжзиіїйклмн�
 // 1. Літера Г замінена на Г +
 // 2. Видалені спецсимволи
 // 3. Текст містить лише маленькі літери алфавіту
-std::string lab2::processText(std::string text) {
+std::string lab2::prepareText(std::string text) {
   for (auto it = text.begin(); it != text.end();) {
     auto prev_it = it;
     uint32_t codepoint = utf8::next(it, text.end());
