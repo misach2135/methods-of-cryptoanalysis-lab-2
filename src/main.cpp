@@ -42,6 +42,5 @@ int main(int argc, char *argv[])
     // const char codepoint[2] = {char(0x1), char(0x0)};
 
     std::cout << convert_cp1251_to_utf8(convert_utf8_to_cp1251(0xd091)) << std::endl;
-
     return 0;
 }
