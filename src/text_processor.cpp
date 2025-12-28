@@ -10,6 +10,10 @@ const uint16_t lab2::UKR_G_LETTER = 0x0491;
 const uint16_t lab2::UKR_H_LETTER = 0x0433;
 const char32_t* lab2::UKRAINIAN_ALPHABET = U"абвгдеєжзиіїйклмнопрстуфхцчшщьюя";
 
+inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) { return 0; }
+
+inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) { return 0; }
+
 // 1. Літера Г замінена на Г +
 // 2. Видалені спецсимволи
 // 3. Текст містить лише маленькі літери алфавіту
@@ -43,4 +47,14 @@ std::string lab2::prepareText(std::string text) {
     text.replace(prev_it, it, repl);
   }
   return text;
+}
+
+std::string lab2::bytesToCyrillicText(std::vector<uint8_t> bytes) {
+  // TODO
+  return std::string();
+}
+
+std::vector<uint8_t> lab2::cyrillicTextToBytes(std::string text) {
+  // TODO
+  return std::vector<uint8_t>();
 }
