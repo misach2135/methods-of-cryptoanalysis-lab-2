@@ -25,10 +25,13 @@ int main(int argc, char* argv[]) {
   std::size_t size = file.tellg();
   file.seekg(0);
 
-  std::string input_text(size, '\0');
-  file.read(input_text.data(), size);
+  std::string text(size, '\0');
+  file.read(text.data(), size);
 
-  std::string test = lab2::prepareText(input_text);
-  std::cout << test << std::endl;
+  text = lab2::prepareText(std::move(text));
+
+  // Print text
+  // std::cout << text << std::endl;
+
   return 0;
 }
