@@ -10,9 +10,13 @@ const uint16_t lab2::UKR_G_LETTER = 0x0491;
 const uint16_t lab2::UKR_H_LETTER = 0x0433;
 const char32_t* lab2::UKRAINIAN_ALPHABET = U"абвгдеєжзиіїйклмнопрстуфхцчшщьюя";
 
-inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) { return 0; }
+inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) {
+  return codepoint & 0xff;
+}
 
-inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) { return 0; }
+inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) {
+  return static_cast<uint32_t>(lab2::CYRILLIC_CODEPAGE_PREFIX << 8) | byte;
+}
 
 // 1. Літера Г замінена на Г +
 // 2. Видалені спецсимволи
@@ -49,12 +53,29 @@ std::string lab2::prepareText(std::string text) {
   return text;
 }
 
-std::string lab2::bytesToCyrillicText(std::vector<uint8_t> bytes) {
-  // TODO
-  return std::string();
+std::string lab2::bytesToCyrillicText(const std::vector<uint8_t>& bytes) {
+  std::string result;
+  result.reserve(bytes.size());
+
+  for (auto byte : bytes) {
+    auto codepoint = byteToCyrillicUnicode(byte);
+    utf8::append(codepoint, std::back_inserter(result));
+  }
+
+  return std::move(result);
 }
 
-std::vector<uint8_t> lab2::cyrillicTextToBytes(std::string text) {
-  // TODO
-  return std::vector<uint8_t>();
+std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text,
+                                               size_t len) {
+  std::vector<uint8_t> v;
+  v.reserve(len);
+  auto text_end = text.end();
+
+  for (auto it = text.begin(); it != text_end;) {
+    auto codepoint = utf8::next(it, text_end);
+    auto byte = cyrillicUnicodeToByte(*it);
+    v.push_back(byte);
+  }
+
+  return std::move(v);
 }
