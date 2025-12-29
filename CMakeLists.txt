@@ -26,4 +26,5 @@ target_sources(
     PRIVATE 
     src/main.cpp
     src/text_processor.cpp 
+    src/statistics.cpp
 )
