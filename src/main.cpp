@@ -5,7 +5,8 @@
 
 // TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
 
-#include <text_processor.h>
+#include "statistics.h"
+#include "text_processor.h"
 
 int main(int argc, char* argv[]) {
   if (argc != 2) {
@@ -33,8 +34,17 @@ int main(int argc, char* argv[]) {
   spdlog::info("Start preprocessing.");
   lab2::prepareText(text);
   spdlog::info("Preprocessing end.");
+  spdlog::info("{:x}", uint32_t(text[0]));
   spdlog::info("Preprocessing end. Text size after preprocessing: {}.",
                text.size());
+
+  // Since every letter is on cyrrylic page, we can use only the last bytes of
+  // letters. This may reduce memory usage.
+  auto bytes_vec = lab2::cyrillicTextToBytes(text);
+
+  auto statistics = lab2::calculateStatistics(bytes_vec);
+
+  spdlog::info("Calculated statistics:\n{}", statistics);
 
   return 0;
 }

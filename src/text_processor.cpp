@@ -1,5 +1,7 @@
 #include "text_processor.h"
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <iostream>
 
@@ -71,7 +73,7 @@ std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text) {
 
   for (auto it = text.begin(); it != text_end;) {
     auto codepoint = utf8::next(it, text_end);
-    auto byte = cyrillicUnicodeToByte(*it);
+    auto byte = cyrillicUnicodeToByte(codepoint);
     v.push_back(byte);
   }
 
