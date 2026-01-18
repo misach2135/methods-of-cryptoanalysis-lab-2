@@ -21,7 +21,7 @@ inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) {
 // 1. Літера Г замінена на Г +
 // 2. Видалені спецсимволи
 // 3. Текст містить лише маленькі літери алфавіту
-std::string lab2::prepareText(std::string text) {
+void lab2::prepareText(std::string& text) {
   for (auto it = text.begin(); it != text.end();) {
     auto prev_it = it;
     uint32_t codepoint = utf8::next(it, text.end());
@@ -50,7 +50,6 @@ std::string lab2::prepareText(std::string text) {
 
     text.replace(prev_it, it, repl);
   }
-  return text;
 }
 
 std::string lab2::bytesToCyrillicText(const std::vector<uint8_t>& bytes) {

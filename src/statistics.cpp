@@ -1,5 +1,5 @@
 #include "statistics.h"
 
-lab2::Statistics lab2::calculateStatistics(std::vector<uint8_t> bytes) {
+lab2::Statistics lab2::calculateStatistics(const std::vector<uint8_t>& bytes) {
   return Statistics();
 }
