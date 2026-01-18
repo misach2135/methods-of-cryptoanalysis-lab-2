@@ -26,8 +26,8 @@ std::vector<uint8_t> lab2::applyAphineLetterSubstitution(
   result.reserve(bytes.size());
 
   for (auto byte : bytes) {
-    auto value = static_cast<uint8_t>(
-        (static_cast<uint32_t>(a) * byte + b) % kAlphabetSize);
+    auto value = static_cast<uint8_t>((static_cast<uint32_t>(a) * byte + b) %
+                                      kAlphabetSize);
     result.push_back(value);
   }
 
