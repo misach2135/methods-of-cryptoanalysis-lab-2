@@ -32,15 +32,14 @@ int main(int argc, char* argv[]) {
   spdlog::info("Text is loaded. Text size in bytes: {}", text.size());
 
   spdlog::info("Start preprocessing.");
-  lab2::prepareText(text);
-  spdlog::info("Preprocessing end.");
+  std::string processedText = lab2::prepareText(text);
   spdlog::info("Preprocessing end. Text size after preprocessing: {}.",
-               text.size());
+               processedText.size());
 
   // Since every letter is on cyrrylic page, we can use only the last bytes of
   // letters. This may reduce memory usage.
   spdlog::info("Converting text to bytes.");
-  auto bytes_vec = lab2::cyrillicTextToBytes(text);
+  auto bytes_vec = lab2::cyrillicTextToBytes(processedText);
   spdlog::info("Bytes count(in practice -- letters count): {}.",
                bytes_vec.size());
 

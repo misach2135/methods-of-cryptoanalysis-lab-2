@@ -13,23 +13,30 @@ const uint16_t lab2::UKR_H_LETTER = 0x0433;
 const char32_t* lab2::UKRAINIAN_ALPHABET = U"абвгдеєжзиіїйклмнопрстуфхцчшщьюя";
 
 inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) {
-  return codepoint & 0xff;
+  auto alphabet_end = UKRAINIAN_ALPHABET + 33;
+  auto it = std::find(UKRAINIAN_ALPHABET, alphabet_end,
+                      static_cast<char32_t>(codepoint));
+  return static_cast<uint8_t>(it - UKRAINIAN_ALPHABET);
 }
 
 inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) {
-  return static_cast<uint32_t>(lab2::CYRILLIC_CODEPAGE_PREFIX << 8) | byte;
+  if (byte >= 33) {
+    return static_cast<uint32_t>('?');
+  }
+  return static_cast<uint32_t>(UKRAINIAN_ALPHABET[byte]);
 }
 
 // 1. Літера Г замінена на Г +
 // 2. Видалені спецсимволи
 // 3. Текст містить лише маленькі літери алфавіту
-void lab2::prepareText(std::string& text) {
+std::string lab2::prepareText(const std::string& text) {
+  std::string filtered_text;
+
   for (auto it = text.begin(); it != text.end();) {
     auto prev_it = it;
     uint32_t codepoint = utf8::next(it, text.end());
 
     if (!u_isalpha(static_cast<UChar32>(codepoint))) {
-      it = text.erase(prev_it, it);
       continue;
     }
 
@@ -43,15 +50,13 @@ void lab2::prepareText(std::string& text) {
     auto alphabet_end = UKRAINIAN_ALPHABET + 33;
     if (std::find(lab2::UKRAINIAN_ALPHABET, alphabet_end,
                   lowercase_codepoint) == alphabet_end) {
-      it = text.erase(prev_it, it);
       continue;
     }
 
-    std::string repl;
-    utf8::append(lowercase_codepoint, std::back_inserter(repl));
-
-    text.replace(prev_it, it, repl);
+    utf8::append(lowercase_codepoint, std::back_inserter(filtered_text));
   }
+
+  return filtered_text;
 }
 
 std::string lab2::bytesToCyrillicText(const std::vector<uint8_t>& bytes) {
