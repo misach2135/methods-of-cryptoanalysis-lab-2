@@ -27,11 +27,12 @@ int main(int argc, char* argv[]) {
 
   std::string text(size, '\0');
   file.read(text.data(), size);
+  // std::cout << text << std::endl;
 
   text = lab2::prepareText(std::move(text));
 
   // Print text
-  // std::cout << text << std::endl;
+  std::cout << text << std::endl;
 
   return 0;
 }

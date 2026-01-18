@@ -11,7 +11,11 @@ silent_run() {
     fi
 }
 
-silent_run cmake -B ./out -S . || exit $?
-silent_run make -C ./out       || exit $?
+echo "(Re)Generating Ninja buildfiles..."
+silent_run cmake -B ./out -S . -G Ninja || exit $?
 
+echo "(Re)Build..."
+silent_run ninja -C ./out       || exit $?
+
+echo "Running..."
 ./out/lab2 "$@"

@@ -62,13 +62,12 @@ std::string lab2::bytesToCyrillicText(const std::vector<uint8_t>& bytes) {
     utf8::append(codepoint, std::back_inserter(result));
   }
 
-  return std::move(result);
+  return result;
 }
 
-std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text,
-                                               size_t len) {
+std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text) {
   std::vector<uint8_t> v;
-  v.reserve(len);
+  v.reserve(text.length());
   auto text_end = text.end();
 
   for (auto it = text.begin(); it != text_end;) {
@@ -77,5 +76,5 @@ std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text,
     v.push_back(byte);
   }
 
-  return std::move(v);
+  return v;
 }
