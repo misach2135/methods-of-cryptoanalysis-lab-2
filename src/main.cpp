@@ -1,10 +1,12 @@
 #include <spdlog/spdlog.h>
 
 #include <fstream>
+#include <iostream>
 #include <sstream>
 
 // TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
 
+#include "alphabet.h"
 #include "statistics.h"
 #include "text_processor.h"
 

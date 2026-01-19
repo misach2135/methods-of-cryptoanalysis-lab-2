@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <random>
 
 #include "utf8.h"
 
@@ -29,7 +30,6 @@ std::string lab2::prepareText(const std::string& text) {
   std::string filtered_text;
 
   for (auto it = text.begin(); it != text.end();) {
-    auto prev_it = it;
     uint32_t codepoint = utf8::next(it, text.end());
 
     if (!u_isalpha(static_cast<UChar32>(codepoint))) {
@@ -75,6 +75,23 @@ std::vector<uint8_t> lab2::cyrillicTextToBytes(const std::string& text) {
     auto codepoint = utf8::next(it, text_end);
     auto byte = cyrillicUnicodeToByte(codepoint);
     v.push_back(byte);
+  }
+
+  return v;
+}
+
+std::vector<uint8_t> lab2::generateRandomText(size_t len) {
+  // TODO: Move to another place?
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> distrib(0, ALPHABET_SIZE);
+
+  std::vector<uint8_t> v;
+
+  while (len--) {
+    uint8_t a = distrib(gen);
+    uint8_t b = distrib(gen);
+    v.push_back((a + b) % (ALPHABET_SIZE + 1));
   }
 
   return v;

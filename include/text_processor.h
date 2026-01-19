@@ -16,6 +16,8 @@ std::string prepareText(const std::string& text);
 std::string bytesToCyrillicText(const std::vector<uint8_t>& bytes);
 std::vector<uint8_t> cyrillicTextToBytes(const std::string& text);
 
+std::vector<uint8_t> generateRandomText(size_t len);
+
 }  // namespace lab2
 
 #endif
