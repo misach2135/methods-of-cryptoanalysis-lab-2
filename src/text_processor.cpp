@@ -10,10 +10,14 @@
 #include "utf8.h"
 
 inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) {
-  auto alphabet_end = UKRAINIAN_ALPHABET + 33;
-  auto it = std::find(UKRAINIAN_ALPHABET, alphabet_end,
+  auto it = std::find(UKRAINIAN_ALPHABET.begin(), UKRAINIAN_ALPHABET.end(),
                       static_cast<char32_t>(codepoint));
-  return static_cast<uint8_t>(it - UKRAINIAN_ALPHABET);
+
+  if (it == UKRAINIAN_ALPHABET.end()) {
+    return 0xFF;
+  }
+
+  return static_cast<uint8_t>(it - UKRAINIAN_ALPHABET.begin());
 }
 
 inline uint32_t lab2::byteToCyrillicUnicode(uint8_t byte) {
@@ -43,8 +47,8 @@ std::string lab2::prepareText(const std::string& text) {
       lowercase_codepoint = UKR_H_LETTER;
     }
 
-    if (std::find(UKRAINIAN_ALPHABET, UKRAINIAN_ALPHABET_END,
-                  lowercase_codepoint) == UKRAINIAN_ALPHABET_END) {
+    if (std::find(UKRAINIAN_ALPHABET.begin(), UKRAINIAN_ALPHABET.end(),
+                  lowercase_codepoint) == UKRAINIAN_ALPHABET.end()) {
       continue;
     }
 

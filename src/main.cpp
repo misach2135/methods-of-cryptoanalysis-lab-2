@@ -13,6 +13,11 @@
 constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
 
+struct Chunk {
+  std::unique_ptr<uint8_t[]> data;
+  uint32_t len;
+};
+
 int lab(const std::string& filepath);
 
 int main(int argc, char* argv[]) {
@@ -57,6 +62,25 @@ int lab(const std::string& filepath) {
   auto statistics = lab2::calculateStatistics(bytes_vec);
 
   spdlog::info("Calculated statistics of preprocessed text:\n{}", statistics);
+
+  std::vector<Chunk> chunks;
+  auto cursor = bytes_vec.begin();
+
+  for (int i = 0; i < 4; i++) {
+    uint32_t l = L_ARR[i];
+    uint32_t n = N_ARR[i];
+
+    spdlog::info("L = {}", l);
+    for (uint32_t j = 0; j < n; j++) {
+      auto buff = std::make_unique<uint8_t[]>(static_cast<size_t>(l));
+
+      std::copy(cursor, cursor + l, buff.get());
+      cursor += l;
+
+      chunks.push_back({std::move(buff), l});
+    }
+    spdlog::info("Generated {} texts", n);
+  }
 
   return 0;
 }
