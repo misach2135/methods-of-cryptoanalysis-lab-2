@@ -29,4 +29,5 @@ target_sources(
     src/text_processor.cpp 
     src/text_transformations.cpp
     src/statistics.cpp
+    src/criteria.cpp
 )

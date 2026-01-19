@@ -1,3 +1,6 @@
+#ifndef LAB2_STATISTICS_H
+#define LAB2_STATISTICS_H
+
 #include <spdlog/fmt/fmt.h>
 
 #include <cstdint>
@@ -69,3 +72,5 @@ struct fmt::formatter<lab2::Statistics> : fmt::formatter<std::string> {
                           statistics.entropy, statistics.index_of_coincidence);
   }
 };
+
+#endif

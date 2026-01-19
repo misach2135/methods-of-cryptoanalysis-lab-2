@@ -181,10 +181,5 @@ int lab(const std::string& filepath) {
 
   spdlog::info("Applying criterias to chunks...");
 
-  for (int i = 0; i < chunks.size(); i++) {
-    auto symbolic_criteria_res =
-        lab2::symbolicCriteria10(bytes_vec, statistics);
-  }
-
   return 0;
 }
