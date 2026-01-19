@@ -9,11 +9,6 @@
 
 namespace lab2 {
 
-extern const uint8_t CYRILLIC_CODEPAGE_PREFIX;
-extern const uint16_t UKR_G_LETTER;
-extern const uint16_t UKR_H_LETTER;
-extern const char32_t* UKRAINIAN_ALPHABET;
-
 uint8_t cyrillicUnicodeToByte(uint32_t codepoint);
 uint32_t byteToCyrillicUnicode(uint8_t byte);
 

@@ -1,16 +1,12 @@
 #include "text_processor.h"
 
+#include <alphabet.h>
 #include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <iostream>
 
 #include "utf8.h"
-
-const uint8_t lab2::CYRILLIC_CODEPAGE_PREFIX = 0x04;
-const uint16_t lab2::UKR_G_LETTER = 0x0491;
-const uint16_t lab2::UKR_H_LETTER = 0x0433;
-const char32_t* lab2::UKRAINIAN_ALPHABET = U"абвгдеєжзиіїйклмнопрстуфхцчшщьюя";
 
 inline uint8_t lab2::cyrillicUnicodeToByte(uint32_t codepoint) {
   auto alphabet_end = UKRAINIAN_ALPHABET + 33;
@@ -43,13 +39,12 @@ std::string lab2::prepareText(const std::string& text) {
     auto lowercase_codepoint =
         static_cast<char32_t>(u_tolower(static_cast<UChar32>(codepoint)));
 
-    if (lowercase_codepoint == lab2::UKR_G_LETTER) {
-      lowercase_codepoint = lab2::UKR_H_LETTER;
+    if (lowercase_codepoint == UKR_G_LETTER) {
+      lowercase_codepoint = UKR_H_LETTER;
     }
 
-    auto alphabet_end = UKRAINIAN_ALPHABET + 33;
-    if (std::find(lab2::UKRAINIAN_ALPHABET, alphabet_end,
-                  lowercase_codepoint) == alphabet_end) {
+    if (std::find(UKRAINIAN_ALPHABET, UKRAINIAN_ALPHABET_END,
+                  lowercase_codepoint) == UKRAINIAN_ALPHABET_END) {
       continue;
     }
 
