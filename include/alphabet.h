@@ -2,6 +2,7 @@
 #define LAB2_ALPHABET
 
 #include <cstdint>
+#include <string_view>
 
 inline constexpr uint8_t CYRILLIC_CODEPAGE_PREFIX = 0x04;
 inline constexpr uint16_t UKR_G_LETTER = 0x0491;
