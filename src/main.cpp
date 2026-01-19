@@ -10,13 +10,21 @@
 #include "statistics.h"
 #include "text_processor.h"
 
+constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
+constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
+
+int lab(const std::string& filepath);
+
 int main(int argc, char* argv[]) {
   if (argc != 2) {
     spdlog::error("Error: Path to the text is required.");
     return -1;
   }
 
-  std::string filepath(argv[1]);
+  return lab(argv[1]);
+}
+
+int lab(const std::string& filepath) {
   std::ifstream file(filepath);
 
   if (!file.is_open()) {
