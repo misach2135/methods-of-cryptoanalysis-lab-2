@@ -87,6 +87,8 @@ int lab(const std::string& filepath) {
   std::vector<Chunk> chunks;
   auto cursor = bytes_vec.begin();
 
+  spdlog::info("Start creating chunks");
+
   for (int i = 0; i < 4; i++) {
     uint32_t l = L_ARR[i];
     uint32_t n = N_ARR[i];
@@ -170,7 +172,8 @@ int lab(const std::string& filepath) {
     }
     spdlog::info("Generated {} texts", n);
   }
-  spdlog::info("Lab texts size: {}", chunks.size());
+
+  spdlog::info("Total chunks: {}", chunks.size());
 
   return 0;
 }

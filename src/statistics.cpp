@@ -5,10 +5,13 @@
 #include <cmath>
 #include <thread>
 
+#include "alphabet.h"
+
 lab2::Statistics lab2::calculateStatistics(const std::vector<uint8_t>& bytes) {
   std::unordered_map<uint8_t, uint32_t> counts;
   std::unordered_map<uint16_t, uint32_t> overlapped_bigrams_count;
   std::unordered_map<uint16_t, uint32_t> non_overlapped_bigrams_count;
+  std::unordered_set<uint16_t> forbidden_bigrams;
 
   auto t1 =
       std::thread([&]() { lab2::calculateLetterFrequencies(bytes, counts); });
@@ -28,6 +31,8 @@ lab2::Statistics lab2::calculateStatistics(const std::vector<uint8_t>& bytes) {
   double entropy = lab2::calculateEntropy(counts, bytes.size());
   double index_of_coincidence =
       lab2::calculateIndexOfCoincidence(counts, bytes.size());
+  calculateForbiddenBigrams(forbidden_bigrams, overlapped_bigrams_count,
+                            text_size, 1);
 
   return Statistics{text_size,
                     entropy,
@@ -49,8 +54,7 @@ void lab2::calculateOverlappedBigramsCount(
     const std::vector<uint8_t>& bytes,
     std::unordered_map<uint16_t, uint32_t>& overlappedBigramsCount) {
   for (size_t i = 0; i < bytes.size() - 1; ++i) {
-    uint16_t bigram = static_cast<uint16_t>(bytes[i] << 8) |
-                      static_cast<uint16_t>(bytes[i + 1]);
+    uint16_t bigram = bytes[i] * ALPHABET_SIZE + bytes[i + 1];
     ++overlappedBigramsCount[bigram];
   }
 }
@@ -59,8 +63,7 @@ void lab2::calculateNonoverlappedBigramsCount(
     const std::vector<uint8_t>& bytes,
     std::unordered_map<uint16_t, uint32_t>& nonOverlappedBigramsCount) {
   for (size_t i = 0; i <= bytes.size() / 2; i += 2) {
-    uint16_t bigram = static_cast<uint16_t>(bytes[i] << 8) |
-                      static_cast<uint16_t>(bytes[i + 1]);
+    uint16_t bigram = bytes[i] * ALPHABET_SIZE + bytes[i + 1];
     ++nonOverlappedBigramsCount[bigram];
   }
 }
@@ -88,4 +91,15 @@ double lab2::calculateIndexOfCoincidence(
   }
 
   return index_of_coincidence;
+}
+
+void lab2::calculateForbiddenBigrams(
+    std::unordered_set<uint16_t>& forbidden_bigrams,
+    const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
+    const uint32_t text_size, const uint32_t threshold) {
+  for (uint16_t bigram = 0; bigram < ALPHABET_SIZE * ALPHABET_SIZE; bigram++) {
+    if (overlapped_bigrams_count.at(bigram) < threshold) {
+      forbidden_bigrams.insert(bigram);
+    }
+  }
 }
