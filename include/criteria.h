@@ -3,6 +3,7 @@
 
 // TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
 
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -10,6 +11,12 @@
 #include "statistics.h"
 
 namespace lab2 {
+
+constexpr std::size_t kWindowL = 1000;
+constexpr std::size_t kHp1 = 10;
+constexpr std::size_t kHp2 = 20;
+constexpr std::size_t kKp1 = 2;
+constexpr std::size_t kKp2 = 3;
 
 bool symbolicCriteria10(const std::vector<uint8_t>& text,
                         const Statistics& statistics);
