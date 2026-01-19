@@ -9,12 +9,16 @@
 // Variant 4
 
 #include "alphabet.h"
+#include "criteria.h"
 #include "statistics.h"
 #include "text_processor.h"
 #include "text_transformations.h"
 
 constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
+
+constexpr uint32_t BIGRAM_THRESHOLDS[] = {1, 2, 3};
+constexpr uint32_t SYMBOL_THRESHOLDS[] = {3, 4, 5};
 
 struct Chunk {
   uint8_t a1;
@@ -174,6 +178,13 @@ int lab(const std::string& filepath) {
   }
 
   spdlog::info("Total chunks: {}", chunks.size());
+
+  spdlog::info("Applying criterias to chunks...");
+
+  for (int i = 0; i < chunks.size(); i++) {
+    auto symbolic_criteria_res =
+        lab2::symbolicCriteria10(bytes_vec, statistics);
+  }
 
   return 0;
 }

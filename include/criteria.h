@@ -19,25 +19,37 @@ constexpr std::size_t kKp1 = 2;
 constexpr std::size_t kKp2 = 3;
 
 bool symbolicCriteria10(const std::vector<uint8_t>& text,
+                        const std::unordered_set<uint8_t>& forbidden_symbols,
                         const Statistics& statistics);
+
 bool symbolicCriteria11(const std::vector<uint8_t>& text,
+                        const std::unordered_set<uint8_t>& forbidden_symbols,
                         const Statistics& statistics);
+
 bool symbolicCriteria12(const std::vector<uint8_t>& text,
+                        const std::unordered_set<uint8_t>& forbidden_symbols,
                         const Statistics& statistics);
+
 bool symbolicCriteria13(const std::vector<uint8_t>& text,
+                        const std::unordered_set<uint8_t>& forbidden_symbols,
                         const Statistics& statistics);
+
 bool symbolicCriteria30(const std::vector<uint8_t>& text,
                         const Statistics& statistics);
 bool symbolicCriteria51(const std::vector<uint8_t>& text,
                         const Statistics& statistics);
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
+                      const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria11(const std::vector<uint8_t>& text,
+                      const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria12(const std::vector<uint8_t>& text,
+                      const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria13(const std::vector<uint8_t>& text,
+                      const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria30(const std::vector<uint8_t>& text,
                       const Statistics& statistics);

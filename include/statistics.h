@@ -16,7 +16,6 @@ struct Statistics {
   std::unordered_map<uint8_t, uint32_t> counts;
   std::unordered_map<uint16_t, uint32_t> overlapped_bigrams_count;
   std::unordered_map<uint16_t, uint32_t> non_overlapped_bigrams_count;
-  std::unordered_set<uint16_t> forbidden_bigrams;
 };
 
 Statistics calculateStatistics(const std::vector<uint8_t>& bytes);
@@ -42,8 +41,14 @@ double calculateIndexOfCoincidence(
     const uint32_t text_size);
 
 void calculateForbiddenBigrams(
+    std::unordered_set<uint16_t>& forbidden_bigrams,
     const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
-    const uint32_t text_size, const uint32_t threshold);
+    const uint32_t threshold);
+
+void calculateForbiddenSymbols(
+    std::unordered_set<uint8_t>& forbidden_symbols,
+    const std::unordered_map<uint8_t, uint32_t>& symbol_counts,
+    const uint32_t threshold);
 
 }  // namespace lab2
 
