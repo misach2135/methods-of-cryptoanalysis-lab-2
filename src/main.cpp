@@ -4,7 +4,7 @@
 #include <iostream>
 #include <sstream>
 
-// TODO: Variant 4 = 1.0-1.3, 3.0, 5.1
+// Variant 4
 
 #include "alphabet.h"
 #include "statistics.h"
