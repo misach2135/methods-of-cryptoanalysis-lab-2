@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(spdlog REQUIRED)
 find_package(ICU REQUIRED COMPONENTS uc)
+find_package(ZLIB REQUIRED)
 
 add_executable(lab2)
 
@@ -18,9 +19,9 @@ target_compile_options(lab2 PRIVATE
     # -Werror
 )
 
-target_link_libraries(lab2 PRIVATE ICU::uc spdlog::spdlog)
+target_link_libraries(lab2 PRIVATE ICU::uc spdlog::spdlog ZLIB::ZLIB)
 
-target_include_directories(lab2 PRIVATE include/)
+target_include_directories(lab2 PRIVATE include/ ${ZLIB_INCLUDE_DIRS})
 
 target_sources(
     lab2 

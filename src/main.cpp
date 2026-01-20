@@ -21,6 +21,7 @@
 #include "statistics.h"
 #include "text_processor.h"
 #include "text_transformations.h"
+#include "utils.h"
 
 constexpr uint32_t L_ARR[] = {10, 100, 1000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000};
@@ -30,64 +31,7 @@ struct Loggers {
   std::shared_ptr<spdlog::logger> csv;
 };
 
-struct Chunk {
-  uint32_t l;
-  uint8_t a1;
-  uint8_t b1;
-  uint16_t a2;
-  uint16_t b2;
-
-  std::array<uint8_t, 1> vigenere_key_1;
-  std::array<uint8_t, 5> vigenere_key_5;
-  std::array<uint8_t, 10> vigenere_key_10;
-
-  std::vector<uint8_t> plain_text;
-
-  std::vector<uint8_t> vigenere_text_1;
-  std::vector<uint8_t> vigenere_text_5;
-  std::vector<uint8_t> vigenere_text_10;
-  std::vector<uint8_t> affine_symbol_text;
-  std::vector<uint8_t> affine_bigram_text;
-};
-
-struct CriteriaResult {
-  double acception_count;
-  double rejection_count;
-};
-
-struct AnalyzeResultsPerText {
-  CriteriaResult criteria_10_symbol;
-  CriteriaResult criteria_10_bigram;
-
-  CriteriaResult criteria_11_symbol;
-  CriteriaResult criteria_11_bigram;
-
-  CriteriaResult criteria_12_symbol;
-  CriteriaResult criteria_12_bigram;
-
-  CriteriaResult criteria_13_symbol;
-  CriteriaResult criteria_13_bigram;
-
-  CriteriaResult criteria_30_symbol;
-  CriteriaResult criteria_30_bigram;
-
-  CriteriaResult criteria_51_symbol;
-  CriteriaResult criteria_51_bigram;
-};
-
-struct AnalyzeResults {
-  AnalyzeResultsPerText plain_text;
-  AnalyzeResultsPerText vigenere_text_1;
-  AnalyzeResultsPerText vigenere_text_5;
-  AnalyzeResultsPerText vigenere_text_10;
-  AnalyzeResultsPerText affine_symbol_text;
-  AnalyzeResultsPerText affine_bigram_text;
-};
-
 Loggers setupLogger();
-
-AnalyzeResults analyzeChunks(const std::vector<Chunk>& chunks,
-                             const lab2::Statistics& lang_stats);
 
 int lab(const std::string& filepath, Loggers logs);
 
@@ -99,7 +43,7 @@ int main(int argc, char* argv[]) {
 
   auto logs = setupLogger();
 
-  auto res = lab(argv[1], logs);
+  auto res = lab(argv[1], std::move(logs));
 
   spdlog::shutdown();
 
@@ -139,7 +83,7 @@ Loggers setupLogger() {
     }
   }
   if (write_header) {
-    csv->info("config,L,criterion,l,FP,FN,N_H0,N_H1");
+    csv->info("text_type,L,criterion,FP1,FN1,FP2,FN2");
   }
 
   return {cli, csv};
@@ -194,7 +138,30 @@ int lab(const std::string& filepath, Loggers logs) {
   lab2::calculateForbiddenBigrams(forbidden_bigrams,
                                   statistics.overlapped_bigrams_count, 1);
 
-  std::array<std::vector<Chunk>, std::size(L_ARR)> chunks;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)> plain_texts;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      vigenere_texts_1;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      vigenere_texts_5;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      vigenere_texts_10;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      affine_symbol_texts;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      affine_bigram_texts;
+
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_plain_texts;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_vigenere_texts_1;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_vigenere_texts_5;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_vigenere_texts_10;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_affine_symbol_texts;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_affine_bigram_texts;
 
   auto cursor = bytes_vec.begin();
 
@@ -225,9 +192,9 @@ int lab(const std::string& filepath, Loggers logs) {
     }
 
     for (uint32_t j = 0; j < n; j++) {
-      std::vector<uint8_t> buff(l);
+      std::vector<uint8_t> plain_text(l);
 
-      std::copy(cursor, cursor + l, buff.data());
+      std::copy(cursor, cursor + l, plain_text.data());
       cursor += l;
 
       std::array<uint8_t, 1> vigenere_key_1 = {uniform_distribution(gen)};
@@ -257,89 +224,75 @@ int lab(const std::string& filepath, Loggers logs) {
       std::vector<uint8_t> vigenere_text_10;
       std::vector<uint8_t> affine_symbol_text;
       std::vector<uint8_t> affine_bigram_text;
+      std::vector<uint8_t> compressed_plain_text;
+      std::vector<uint8_t> compressed_vigenere_text_1;
+      std::vector<uint8_t> compressed_vigenere_text_5;
+      std::vector<uint8_t> compressed_vigenere_text_10;
+      std::vector<uint8_t> compressed_affine_symbol_text;
+      std::vector<uint8_t> compressed_affine_bigram_text;
 
-      auto t1 = std::thread([&vigenere_text_1, &buff, &vigenere_key_1]() {
-        vigenere_text_1 = lab2::applyVigenereCipher(buff, vigenere_key_1);
+      auto t1 = std::thread([&vigenere_text_1, &plain_text, &vigenere_key_1,
+                             &compressed_vigenere_text_1, &vigenere_texts_1,
+                             &compressed_vigenere_texts_1, i]() {
+        vigenere_text_1 = lab2::applyVigenereCipher(plain_text, vigenere_key_1);
+        compressed_vigenere_text_1 = compressText(vigenere_text_1);
+        vigenere_texts_1[i].push_back(vigenere_text_1);
+        compressed_vigenere_texts_1[i].push_back(compressed_vigenere_text_1);
       });
 
-      auto t2 = std::thread([&vigenere_text_5, &buff, &vigenere_key_5]() {
-        vigenere_text_5 = lab2::applyVigenereCipher(buff, vigenere_key_5);
+      auto t2 = std::thread([&vigenere_text_5, &plain_text, &vigenere_key_5,
+                             &compressed_vigenere_text_5, &vigenere_texts_5,
+                             &compressed_vigenere_texts_5, i]() {
+        vigenere_text_5 = lab2::applyVigenereCipher(plain_text, vigenere_key_5);
+        compressed_vigenere_text_5 = compressText(vigenere_text_5);
+        vigenere_texts_5[i].push_back(vigenere_text_5);
+        compressed_vigenere_texts_5[i].push_back(compressed_vigenere_text_5);
       });
 
-      auto t3 = std::thread([&vigenere_text_10, &buff, &vigenere_key_10]() {
-        vigenere_text_10 = lab2::applyVigenereCipher(buff, vigenere_key_10);
+      auto t3 = std::thread([&vigenere_text_10, &plain_text, &vigenere_key_10,
+                             &compressed_vigenere_text_10, &vigenere_texts_10,
+                             &compressed_vigenere_texts_10, i]() {
+        vigenere_text_10 =
+            lab2::applyVigenereCipher(plain_text, vigenere_key_10);
+        compressed_vigenere_text_10 = compressText(vigenere_text_10);
+        vigenere_texts_10[i].push_back(vigenere_text_10);
+        compressed_vigenere_texts_10[i].push_back(compressed_vigenere_text_10);
       });
 
-      auto t4 = std::thread([&affine_symbol_text, &buff, a1, b1]() {
-        affine_symbol_text = lab2::applyAphineLetterSubstitution(buff, a1, b1);
-      });
+      auto t4 = std::thread(
+          [&affine_symbol_text, &plain_text, &compressed_affine_symbol_text, a1,
+           b1, &affine_symbol_texts, &compressed_affine_symbol_texts, i]() {
+            affine_symbol_text =
+                lab2::applyAphineLetterSubstitution(plain_text, a1, b1);
+            compressed_affine_symbol_text = compressText(affine_symbol_text);
+            affine_symbol_texts[i].push_back(affine_symbol_text);
+            compressed_affine_symbol_texts[i].push_back(
+                compressed_affine_symbol_text);
+          });
 
-      auto t5 = std::thread([&affine_bigram_text, &buff, a2, b2]() {
-        affine_bigram_text = lab2::applyAphineBigramSubstitution(buff, a2, b2);
-      });
+      auto t5 = std::thread(
+          [&affine_bigram_text, &plain_text, &compressed_affine_bigram_text, a2,
+           b2, &affine_bigram_texts, &compressed_affine_bigram_texts, i]() {
+            affine_bigram_text =
+                lab2::applyAphineBigramSubstitution(plain_text, a2, b2);
+            compressed_affine_bigram_text = compressText(affine_bigram_text);
+            affine_bigram_texts[i].push_back(affine_bigram_text);
+            compressed_affine_bigram_texts[i].push_back(
+                compressed_affine_bigram_text);
+          });
+
+      compressed_plain_text = compressText(plain_text);
+      plain_texts[i].push_back(plain_text);
+      compressed_plain_texts[i].push_back(compressed_plain_text);
 
       t1.join();
       t2.join();
       t3.join();
       t4.join();
       t5.join();
-
-      chunks[i].push_back({
-          l,
-          a1,
-          b1,
-          a2,
-          b2,
-          std::move(vigenere_key_1),
-          std::move(vigenere_key_5),
-          std::move(vigenere_key_10),
-          std::move(buff),
-          std::move(vigenere_text_1),
-          std::move(vigenere_text_5),
-          std::move(vigenere_text_10),
-          std::move(affine_symbol_text),
-          std::move(affine_bigram_text),
-      });
     }
     logs.cli->info("Generated {} texts", n);
   }
 
-  logs.cli->info("Total chunks: {}", chunks.size());
-
-  logs.cli->info("Start chunks analization");
-
-  for (int i = 0; i < chunks.size(); i++) {
-    int l = L_ARR[i];
-
-    auto res = analyzeChunks(chunks[i], statistics);
-  }
-
   return 0;
-}
-
-AnalyzeResults analyzeChunks(
-    const std::vector<Chunk>& chunks, const lab2::Statistics& lang_stats,
-    const std::unordered_set<uint8_t>& forbidden_symbols,
-    const std::unordered_set<uint16_t>& forbidden_bigrams) {
-  CriteriaResult criteria_10_symbol;
-  CriteriaResult criteria_10_bigram;
-
-  CriteriaResult criteria_11_symbol;
-  CriteriaResult criteria_11_bigram;
-
-  CriteriaResult criteria_12_symbol;
-  CriteriaResult criteria_12_bigram;
-
-  CriteriaResult criteria_13_symbol;
-  CriteriaResult criteria_13_bigram;
-
-  CriteriaResult criteria_30_symbol;
-  CriteriaResult criteria_30_bigram;
-
-  CriteriaResult criteria_51_symbol;
-  CriteriaResult criteria_51_bigram;
-
-  for (int i = 0; i < chunks.size(); i++) {
-    lab2::symbolicCriteria10(chunks[i].plain_text, )
-  }
 }
