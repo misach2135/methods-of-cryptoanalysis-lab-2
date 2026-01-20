@@ -25,8 +25,8 @@
 constexpr uint32_t L_ARR[] = {10, 100, 1000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000};
 
-constexpr uint32_t BIGRAM_THRESHOLDS[] = {1, 2, 3};
-constexpr uint32_t SYMBOL_THRESHOLDS[] = {3, 4, 5};
+constexpr double BIGRAM_THRESHOLDS[] = {0.2, 0.4, 0.6};
+constexpr double SYMBOL_THRESHOLDS[] = {0.2, 0.4, 0.6};
 
 struct Loggers {
   std::shared_ptr<spdlog::logger> cli;
@@ -385,19 +385,18 @@ int lab(const std::string& filepath, Loggers logs) {
   logs.cli->info("criteria_return_true_means=H1");
   logs.cli->info("Applying criterias to chunks...");
 
-  const std::array<std::string, 5> config_names = {
+  const std::array<std::string, 6> config_names = {
       "vigenere_r1",   "vigenere_r5",   "vigenere_r10",
-      "affine_symbol", "affine_bigram",
-  };
+      "affine_symbol", "affine_bigram", "plain_text"};
 
   std::map<ResultKey, ResultCounts> results;
   std::vector<uint8_t> h0_results(criteria.size());
 
   for (const auto& chunk : chunks) {
-    const std::array<const std::vector<uint8_t>*, 5> h1_texts = {
+    const std::array<const std::vector<uint8_t>*, 6> h1_texts = {
         &chunk.vigenere_text_1,    &chunk.vigenere_text_5,
         &chunk.vigenere_text_10,   &chunk.affine_symbol_text,
-        &chunk.affine_bigram_text,
+        &chunk.affine_bigram_text, &chunk.plain_text,
     };
 
     const auto& h0_text = chunk.plain_text;
