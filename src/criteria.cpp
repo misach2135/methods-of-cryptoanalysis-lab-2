@@ -13,11 +13,6 @@
 
 namespace lab2 {
 
-// Return value: true => H1 (random / non-plaintext), false => H0 (plaintext).
-// Bigram criteria use overlapped bigrams encoded as a*ALPHABET_SIZE + b.
-// Threshold defaults (tune for FP/FN): kKp1/kKp2 from criteria.h for 1.1,
-// kEntropyThresholdSymbols/kEntropyThresholdBigrams for 3.0, and for 5.1
-// use kFrequentSymbols/kFrequentBigrams (j) with kEmptySymbols/kEmptyBigrams.
 namespace {
 
 constexpr double kEntropyThresholdSymbols = 0.2;  // kH for l=1 (heuristic).
@@ -75,18 +70,18 @@ bool symbolicCriteria10(const std::vector<uint8_t>& text,
 
 bool symbolicCriteria11(const std::vector<uint8_t>& text,
                         const std::unordered_set<uint8_t>& forbidden_symbols,
-                        const Statistics& statistics) {
+                        size_t kp) {
   if (text.empty()) {
     return true;
   }
 
   std::unordered_set<uint8_t> appeared;
-  appeared.reserve(std::min<std::size_t>(forbidden_symbols.size(), kKp1));
+  appeared.reserve(std::min<std::size_t>(forbidden_symbols.size(), kp));
 
   for (auto symbol : text) {
     if (forbidden_symbols.find(symbol) != forbidden_symbols.end()) {
       appeared.insert(symbol);
-      if (appeared.size() >= kKp1) {
+      if (appeared.size() >= kp) {
         return true;
       }
     }
@@ -136,7 +131,6 @@ bool symbolicCriteria12(const std::vector<uint8_t>& text,
   return false;
 }
 
-// Criterion 1.3 (sum of forbidden symbols frequencies).
 bool symbolicCriteria13(const std::vector<uint8_t>& text,
                         const std::unordered_set<uint8_t>& forbidden_symbols,
                         const Statistics& statistics) {
@@ -176,7 +170,6 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
   return fp_sum > kp_sum;
 }
 
-// Criterion 3.0 (entropy, symbols).
 bool symbolicCriteria30(const std::vector<uint8_t>& text,
                         const Statistics& statistics) {
   if (text.empty() || statistics.text_size == 0U) {
@@ -192,7 +185,6 @@ bool symbolicCriteria30(const std::vector<uint8_t>& text,
          kEntropyThresholdSymbols;
 }
 
-// Criterion 5.1 (empty boxes, most frequent symbols).
 bool symbolicCriteria51(const std::vector<uint8_t>& text,
                         const Statistics& statistics) {
   if (text.empty() || statistics.text_size == 0U) {
@@ -239,11 +231,8 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
   return fempt >= kEmptySymbols;
 }
 
-// Criterion 1.0 (forbidden bigrams, overlapped).
 bool bigramCriteria10(const std::vector<uint8_t>& text,
-                      const std::unordered_set<uint16_t>& forbidden_symbols,
-                      const Statistics& statistics) {
-  (void)statistics;
+                      const std::unordered_set<uint16_t>& forbidden_symbols) {
   if (text.size() < 2U) {
     return true;
   }
@@ -258,23 +247,21 @@ bool bigramCriteria10(const std::vector<uint8_t>& text,
   return false;
 }
 
-// Criterion 1.1 (forbidden bigrams with kp threshold, overlapped).
 bool bigramCriteria11(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
-                      const Statistics& statistics) {
-  (void)statistics;
+                      const uint32_t kp2) {
   if (text.size() < 2U) {
     return true;
   }
 
   std::unordered_set<uint16_t> appeared;
-  appeared.reserve(std::min<std::size_t>(forbidden_symbols.size(), kKp2));
+  appeared.reserve(std::min<std::size_t>(forbidden_symbols.size(), kp2));
 
   for (std::size_t i = 0; i + 1 < text.size(); ++i) {
     const uint16_t bigram = makeBigram(text[i], text[i + 1]);
     if (forbidden_symbols.find(bigram) != forbidden_symbols.end()) {
       appeared.insert(bigram);
-      if (appeared.size() >= kKp2) {
+      if (appeared.size() >= kp2) {
         return true;
       }
     }
@@ -283,7 +270,6 @@ bool bigramCriteria11(const std::vector<uint8_t>& text,
   return false;
 }
 
-// Criterion 1.2 (forbidden bigram frequency vs baseline, overlapped).
 bool bigramCriteria12(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics) {
@@ -331,7 +317,6 @@ bool bigramCriteria12(const std::vector<uint8_t>& text,
   return false;
 }
 
-// Criterion 1.3 (sum of forbidden bigram frequencies, overlapped).
 bool bigramCriteria13(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics) {
@@ -377,7 +362,6 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
   return fp_sum > kp_sum;
 }
 
-// Criterion 3.0 (entropy, bigrams, overlapped).
 bool bigramCriteria30(const std::vector<uint8_t>& text,
                       const Statistics& statistics) {
   if (text.size() < 2U || statistics.text_size < 2U) {
@@ -449,6 +433,11 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
 
   const std::size_t fempt = frequent_bigrams.size() - seen.size();
   return fempt >= kEmptyBigrams;
+}
+
+bool structuralCriteria(const std::vector<uint8_t>& text) {
+  // TODO
+  return false;
 }
 
 }  // namespace lab2

@@ -12,19 +12,12 @@
 
 namespace lab2 {
 
-constexpr std::size_t kWindowL = 1000;
-constexpr std::size_t kHp1 = 10;
-constexpr std::size_t kHp2 = 20;
-constexpr std::size_t kKp1 = 2;
-constexpr std::size_t kKp2 = 3;
-
 bool symbolicCriteria10(const std::vector<uint8_t>& text,
-                        const std::unordered_set<uint8_t>& forbidden_symbols,
-                        const Statistics& statistics);
+                        const std::unordered_set<uint8_t>& forbidden_symbols);
 
 bool symbolicCriteria11(const std::vector<uint8_t>& text,
                         const std::unordered_set<uint8_t>& forbidden_symbols,
-                        const Statistics& statistics);
+                        size_t kp);
 
 bool symbolicCriteria12(const std::vector<uint8_t>& text,
                         const std::unordered_set<uint8_t>& forbidden_symbols,
@@ -40,11 +33,10 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
                         const Statistics& statistics);
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
-                      const std::unordered_set<uint16_t>& forbidden_symbols,
-                      const Statistics& statistics);
+                      const std::unordered_set<uint16_t>& forbidden_symbols);
 bool bigramCriteria11(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
-                      const Statistics& statistics);
+                      const uint32_t kp2);
 bool bigramCriteria12(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
@@ -55,6 +47,8 @@ bool bigramCriteria30(const std::vector<uint8_t>& text,
                       const Statistics& statistics);
 bool bigramCriteria51(const std::vector<uint8_t>& text,
                       const Statistics& statistics);
+
+bool structuralCriteria(const std::vector<uint8_t>& text);
 
 }  // namespace lab2
 

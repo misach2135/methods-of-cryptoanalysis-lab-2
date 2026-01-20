@@ -52,7 +52,7 @@ void lab2::calculateLetterFrequencies(
 void lab2::calculateOverlappedBigramsCount(
     const std::vector<uint8_t>& bytes,
     std::unordered_map<uint16_t, uint32_t>& overlappedBigramsCount) {
-  for (size_t i = 0; i < bytes.size() - 1; ++i) {
+  for (size_t i = 0; i + 1 < bytes.size(); ++i) {
     uint16_t bigram = bytes[i] * ALPHABET_SIZE + bytes[i + 1];
     ++overlappedBigramsCount[bigram];
   }
@@ -70,6 +70,9 @@ void lab2::calculateNonoverlappedBigramsCount(
 double lab2::calculateEntropy(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
     const uint32_t text_size) {
+  if (text_size == 0U) {
+    return 0.0;
+  }
   double entropy = 0.0;
   for (const auto& [letter, count] : letter_counts) {
     double prob = static_cast<double>(count) / static_cast<double>(text_size);
@@ -82,6 +85,9 @@ double lab2::calculateEntropy(
 double lab2::calculateIndexOfCoincidence(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
     const uint32_t text_size) {
+  if (text_size == 0U) {
+    return 0.0;
+  }
   double index_of_coincidence = 0.0;
 
   for (const auto& [letter, count] : letter_counts) {
