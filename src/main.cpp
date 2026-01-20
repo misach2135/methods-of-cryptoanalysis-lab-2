@@ -127,17 +127,6 @@ int lab(const std::string& filepath, Loggers logs) {
 
   logs.cli->info("Calculated statistics of preprocessed text:\n{}", statistics);
 
-  logs.cli->info("Calculating forbidden symbols/bigrams for criteria.");
-
-  std::unordered_set<uint8_t> forbidden_symbols;
-  std::unordered_set<uint16_t> forbidden_bigrams;
-
-  lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
-                                  statistics.text_size / 25);
-
-  lab2::calculateForbiddenBigrams(forbidden_bigrams,
-                                  statistics.overlapped_bigrams_count, 1);
-
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)> plain_texts;
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
       vigenere_texts_1;
@@ -293,6 +282,17 @@ int lab(const std::string& filepath, Loggers logs) {
     }
     logs.cli->info("Generated {} texts", n);
   }
+
+  logs.cli->info("Calculating forbidden symbols/bigrams for criteria.");
+
+  std::unordered_set<uint8_t> forbidden_symbols;
+  std::unordered_set<uint16_t> forbidden_bigrams;
+
+  lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
+                                  statistics.text_size / 25);
+
+  lab2::calculateForbiddenBigrams(forbidden_bigrams,
+                                  statistics.overlapped_bigrams_count, 1);
 
   return 0;
 }

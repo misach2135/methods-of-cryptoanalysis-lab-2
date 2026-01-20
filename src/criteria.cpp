@@ -19,29 +19,6 @@ uint16_t makeBigram(uint8_t first, uint8_t second) {
   return static_cast<uint16_t>(first * ALPHABET_SIZE + second);
 }
 
-std::size_t totalOverlappedBigrams(std::size_t text_size) {
-  return (text_size > 1U) ? (text_size - 1U) : 0U;
-}
-
-template <typename Counts>
-double calculateEntropyFromCounts(const Counts& counts, double total,
-                                  std::size_t gram_len) {
-  if (total <= 0.0 || gram_len == 0U) {
-    return 0.0;
-  }
-
-  double entropy = 0.0;
-  for (const auto& [gram, count] : counts) {
-    if (count == 0U) {
-      continue;
-    }
-    double prob = static_cast<double>(count) / total;
-    entropy += -prob * std::log2(prob);
-  }
-
-  return entropy / static_cast<double>(gram_len);
-}
-
 }  // namespace
 
 bool symbolicCriteria10(const std::vector<uint8_t>& text,
@@ -88,33 +65,31 @@ bool symbolicCriteria12(const std::vector<uint8_t>& text,
     return true;
   }
 
-  const double total = static_cast<double>(text.size());
-  const double baseline_total = static_cast<double>(statistics.text_size);
-  if (baseline_total <= 0.0) {
+  if (statistics.text_size == 0U) {
     return true;
   }
 
-  std::unordered_map<uint8_t, uint32_t> sample_counts;
-  sample_counts.reserve(forbidden_symbols.size());
+  std::unordered_map<uint8_t, uint32_t> counts_local;
+  counts_local.reserve(forbidden_symbols.size());
 
   for (auto symbol : text) {
-    if (forbidden_symbols.find(symbol) != forbidden_symbols.end()) {
-      ++sample_counts[symbol];
+    if (forbidden_symbols.find(symbol) == forbidden_symbols.end()) {
+      continue;
     }
+    ++counts_local[symbol];
   }
 
-  for (auto symbol : forbidden_symbols) {
-    auto sample_it = sample_counts.find(symbol);
-    const uint32_t sample_count =
-        (sample_it == sample_counts.end()) ? 0U : sample_it->second;
-    const double fx = static_cast<double>(sample_count) / total;
+  for (auto forbidden_symbol : forbidden_symbols) {
+    auto count_local_iter = counts_local.find(forbidden_symbol);
+    auto count_local =
+        count_local_iter == counts_local.end() ? 0U : count_local_iter->second;
 
-    auto base_it = statistics.counts.find(symbol);
-    const uint32_t base_count =
-        (base_it == statistics.counts.end()) ? 0U : base_it->second;
-    const double kx = static_cast<double>(base_count) / baseline_total;
+    auto count_global_iter = statistics.counts.find(forbidden_symbol);
+    auto count_global = count_global_iter == statistics.counts.end()
+                            ? 0U
+                            : count_global_iter->second;
 
-    if (fx > kx) {
+    if (count_local > count_global) {
       return true;
     }
   }
@@ -129,56 +104,59 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
     return true;
   }
 
-  const double total = static_cast<double>(text.size());
-  const double baseline_total = static_cast<double>(statistics.text_size);
-  if (baseline_total <= 0.0) {
+  if (statistics.text_size == 0U) {
     return true;
   }
 
-  std::unordered_map<uint8_t, uint32_t> sample_counts;
-  sample_counts.reserve(forbidden_symbols.size());
+  std::unordered_map<uint8_t, uint32_t> counts_local;
+  counts_local.reserve(forbidden_symbols.size());
 
   for (auto symbol : text) {
-    if (forbidden_symbols.find(symbol) != forbidden_symbols.end()) {
-      ++sample_counts[symbol];
+    if (forbidden_symbols.find(symbol) == forbidden_symbols.end()) {
+      continue;
     }
+    ++counts_local[symbol];
   }
 
-  double fp_sum = 0.0;
-  double kp_sum = 0.0;
-  for (auto symbol : forbidden_symbols) {
-    auto sample_it = sample_counts.find(symbol);
-    const uint32_t sample_count =
-        (sample_it == sample_counts.end()) ? 0U : sample_it->second;
-    fp_sum += static_cast<double>(sample_count) / total;
+  uint32_t count_f = 0U;
+  uint32_t count_k = 0U;
 
-    auto base_it = statistics.counts.find(symbol);
-    const uint32_t base_count =
-        (base_it == statistics.counts.end()) ? 0U : base_it->second;
-    kp_sum += static_cast<double>(base_count) / baseline_total;
+  for (auto forbidden_symbol : forbidden_symbols) {
+    auto count_local_iter = counts_local.find(forbidden_symbol);
+    auto count_local =
+        count_local_iter == counts_local.end() ? 0U : count_local_iter->second;
+
+    auto count_global_iter = statistics.counts.find(forbidden_symbol);
+    auto count_global = count_global_iter == statistics.counts.end()
+                            ? 0U
+                            : count_global_iter->second;
+
+    count_f += count_local;
+    count_k += count_global;
   }
 
-  return fp_sum > kp_sum;
+  return count_f > count_k;
 }
 
 bool symbolicCriteria30(const std::vector<uint8_t>& text,
-                        const Statistics& statistics,
-                        const double entropyThresholdSymbols) {
+                        const Statistics& statistics, const double threshold) {
   if (text.empty() || statistics.text_size == 0U) {
     return true;
   }
 
-  std::unordered_map<uint8_t, uint32_t> sample_counts;
-  sample_counts.reserve(ALPHABET_SIZE);
-  calculateLetterFrequencies(text, sample_counts);
-  double sample_entropy = calculateEntropy(sample_counts, text.size());
+  std::unordered_map<uint8_t, uint32_t> counts_local;
+  counts_local.reserve(ALPHABET_SIZE);
 
-  return std::abs(statistics.entropy - sample_entropy) >
-         entropyThresholdSymbols;
+  calculateLetterFrequencies(text, counts_local);
+
+  const double local_entropy = calculateEntropyL1(counts_local, text.size());
+
+  return std::abs(statistics.entropy_1 - local_entropy) > threshold;
 }
 
 bool symbolicCriteria51(const std::vector<uint8_t>& text,
-                        const Statistics& statistics, const size_t threshold) {
+                        const Statistics& statistics, const size_t threshold,
+                        const size_t j) {
   if (text.empty() || statistics.text_size == 0U) {
     return true;
   }
@@ -269,39 +247,24 @@ bool bigramCriteria12(const std::vector<uint8_t>& text,
     return true;
   }
 
-  const std::size_t total = totalOverlappedBigrams(text.size());
-  const std::size_t baseline_total =
-      totalOverlappedBigrams(statistics.text_size);
-  if (total == 0U || baseline_total == 0U) {
-    return true;
-  }
+  std::unordered_map<uint16_t, uint32_t> bigrams_count_local;
 
-  std::unordered_map<uint16_t, uint32_t> sample_counts;
-  sample_counts.reserve(forbidden_symbols.size());
+  calculateOverlappedBigramsCount(text, bigrams_count_local);
 
-  for (std::size_t i = 0; i + 1 < text.size(); ++i) {
-    const uint16_t bigram = makeBigram(text[i], text[i + 1]);
-    if (forbidden_symbols.find(bigram) != forbidden_symbols.end()) {
-      ++sample_counts[bigram];
-    }
-  }
+  for (auto forbidden_bigram : forbidden_symbols) {
+    auto count_local_iter = bigrams_count_local.find(forbidden_bigram);
+    auto count_local = count_local_iter == bigrams_count_local.end()
+                           ? 0
+                           : count_local_iter->second;
 
-  const double total_d = static_cast<double>(total);
-  const double baseline_total_d = static_cast<double>(baseline_total);
-  for (auto bigram : forbidden_symbols) {
-    auto sample_it = sample_counts.find(bigram);
-    const uint32_t sample_count =
-        (sample_it == sample_counts.end()) ? 0U : sample_it->second;
-    const double fx = static_cast<double>(sample_count) / total_d;
+    auto count_global_iter =
+        statistics.overlapped_bigrams_count.find(forbidden_bigram);
+    auto count_global =
+        count_global_iter == statistics.overlapped_bigrams_count.end()
+            ? 0
+            : count_global_iter->second;
 
-    auto base_it = statistics.overlapped_bigrams_count.find(bigram);
-    const uint32_t base_count =
-        (base_it == statistics.overlapped_bigrams_count.end())
-            ? 0U
-            : base_it->second;
-    const double kx = static_cast<double>(base_count) / baseline_total_d;
-
-    if (fx > kx) {
+    if (count_local > count_global) {
       return true;
     }
   }
@@ -316,114 +279,94 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
     return true;
   }
 
-  const std::size_t total = totalOverlappedBigrams(text.size());
-  const std::size_t baseline_total =
-      totalOverlappedBigrams(statistics.text_size);
-  if (total == 0U || baseline_total == 0U) {
-    return true;
+  std::unordered_map<uint16_t, uint32_t> bigrams_count_local;
+
+  calculateOverlappedBigramsCount(text, bigrams_count_local);
+
+  uint32_t count_f = 0;
+  uint32_t count_k = 0;
+
+  for (auto forbidden_bigram : forbidden_symbols) {
+    auto count_local_iter = bigrams_count_local.find(forbidden_bigram);
+    auto count_local = count_local_iter == bigrams_count_local.end()
+                           ? 0
+                           : count_local_iter->second;
+
+    auto count_global_iter =
+        statistics.overlapped_bigrams_count.find(forbidden_bigram);
+    auto count_global =
+        count_global_iter == statistics.overlapped_bigrams_count.end()
+            ? 0
+            : count_global_iter->second;
+
+    count_f += count_local;
+    count_k += count_global;
   }
 
-  std::unordered_map<uint16_t, uint32_t> sample_counts;
-  sample_counts.reserve(forbidden_symbols.size());
-
-  for (std::size_t i = 0; i + 1 < text.size(); ++i) {
-    const uint16_t bigram = makeBigram(text[i], text[i + 1]);
-    if (forbidden_symbols.find(bigram) != forbidden_symbols.end()) {
-      ++sample_counts[bigram];
-    }
-  }
-
-  double fp_sum = 0.0;
-  double kp_sum = 0.0;
-  const double total_d = static_cast<double>(total);
-  const double baseline_total_d = static_cast<double>(baseline_total);
-  for (auto bigram : forbidden_symbols) {
-    auto sample_it = sample_counts.find(bigram);
-    const uint32_t sample_count =
-        (sample_it == sample_counts.end()) ? 0U : sample_it->second;
-    fp_sum += static_cast<double>(sample_count) / total_d;
-
-    auto base_it = statistics.overlapped_bigrams_count.find(bigram);
-    const uint32_t base_count =
-        (base_it == statistics.overlapped_bigrams_count.end())
-            ? 0U
-            : base_it->second;
-    kp_sum += static_cast<double>(base_count) / baseline_total_d;
-  }
-
-  return fp_sum > kp_sum;
+  return count_f > count_k;
 }
 
 bool bigramCriteria30(const std::vector<uint8_t>& text,
-                      const Statistics& statistics, const size_t threshold) {
+                      const Statistics& statistics, const double threshold) {
   if (text.size() < 2U || statistics.text_size < 2U) {
     return true;
   }
 
-  const std::size_t total = totalOverlappedBigrams(text.size());
-  const std::size_t baseline_total =
-      totalOverlappedBigrams(statistics.text_size);
-  if (total == 0U || baseline_total == 0U) {
-    return true;
-  }
+  std::unordered_map<uint16_t, uint32_t> overlappedBigrams;
 
-  std::unordered_map<uint16_t, uint32_t> sample_counts;
-  sample_counts.reserve(std::min<std::size_t>(total, threshold));
-  for (std::size_t i = 0; i + 1 < text.size(); ++i) {
-    ++sample_counts[makeBigram(text[i], text[i + 1])];
-  }
+  calculateOverlappedBigramsCount(text, overlappedBigrams);
 
-  const double sample_entropy =
-      calculateEntropyFromCounts(sample_counts, static_cast<double>(total), 2U);
-  const double baseline_entropy =
-      calculateEntropyFromCounts(statistics.overlapped_bigrams_count,
-                                 static_cast<double>(baseline_total), 2U);
+  double local_entropy = calculateEntropyL2(overlappedBigrams, text.size());
 
-  return std::abs(baseline_entropy - sample_entropy) > threshold;
+  return std::abs(statistics.entropy_2 - local_entropy) > threshold;
 }
 
 bool bigramCriteria51(const std::vector<uint8_t>& text,
-                      const Statistics& statistics, const size_t threshold) {
+                      const Statistics& statistics, const size_t threshold,
+                      const size_t j) {
   if (text.size() < 2U || statistics.text_size < 2U) {
     return true;
   }
 
-  std::vector<std::pair<uint16_t, uint32_t>> ordered;
-  ordered.reserve(statistics.overlapped_bigrams_count.size());
-  for (const auto& [bigram, count] : statistics.overlapped_bigrams_count) {
-    ordered.push_back({bigram, count});
+  std::vector<std::pair<int, int>> overlappedBigrams(
+      statistics.overlapped_bigrams_count.begin(),
+      statistics.overlapped_bigrams_count.end());
+
+  std::nth_element(overlappedBigrams.begin(), overlappedBigrams.begin() + j,
+                   overlappedBigrams.end(), [](const auto& a, const auto& b) {
+                     return a.second > b.second;
+                   });
+
+  overlappedBigrams.resize(j);
+
+  std::unordered_set<uint16_t> bSet;
+
+  for (int i = 0; i < overlappedBigrams.size(); i++) {
+    bSet.insert(overlappedBigrams[i].first);
   }
 
-  const std::size_t top_count =
-      std::min<std::size_t>(threshold, ordered.size());
-  if (top_count == 0U) {
-    return true;
+  std::unordered_map<uint16_t, uint32_t> boxes;
+
+  for (const auto& [bigram_i32, _cnt] : overlappedBigrams) {
+    boxes.emplace(static_cast<uint16_t>(bigram_i32), false);
   }
 
-  std::partial_sort(
-      ordered.begin(), ordered.begin() + top_count, ordered.end(),
-      [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
-
-  std::unordered_set<uint16_t> frequent_bigrams;
-  frequent_bigrams.reserve(top_count * 2U);
-  for (std::size_t i = 0; i < top_count; ++i) {
-    frequent_bigrams.insert(ordered[i].first);
-  }
-
-  std::unordered_set<uint16_t> seen;
-  seen.reserve(top_count);
-  for (std::size_t i = 0; i + 1 < text.size(); ++i) {
-    const uint16_t bigram = makeBigram(text[i], text[i + 1]);
-    if (frequent_bigrams.find(bigram) != frequent_bigrams.end()) {
-      seen.insert(bigram);
-      if (seen.size() == frequent_bigrams.size()) {
-        break;
-      }
+  for (int i = 0; i < text.size() - 1; i++) {
+    uint16_t bigram = makeBigram(text[i], text[i + 1]);
+    auto it = bSet.find(bigram);
+    if (it != bSet.end()) {
+      boxes[bigram]++;
     }
   }
 
-  const std::size_t fempt = frequent_bigrams.size() - seen.size();
-  return fempt >= threshold;
+  uint32_t ft = 0;
+
+  for (auto const& [key, val] : boxes) {
+    if (val != 0) continue;
+    ft += 1;
+  }
+
+  return ft > threshold;
 }
 
 bool structuralCriteria(const std::vector<uint8_t>& text) {

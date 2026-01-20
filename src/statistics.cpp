@@ -27,14 +27,21 @@ lab2::Statistics lab2::calculateStatistics(const std::vector<uint8_t>& bytes) {
   t3.join();
 
   uint32_t text_size = static_cast<uint32_t>(bytes.size());
-  double entropy = lab2::calculateEntropy(counts, bytes.size());
-  double index_of_coincidence =
-      lab2::calculateIndexOfCoincidence(counts, bytes.size());
+  double entropy_1 = lab2::calculateEntropyL1(counts, bytes.size());
+  double entropy_2 =
+      lab2::calculateEntropyL2(overlapped_bigrams_count, bytes.size());
+  double index_of_coincidence_1 =
+      lab2::calculateIndexOfCoincidenceL1(counts, bytes.size());
+
+  double index_of_coincidence_2 = lab2::calculateIndexOfCoincidenceL2(
+      overlapped_bigrams_count, bytes.size());
 
   return Statistics{
       text_size,
-      entropy,
-      index_of_coincidence,
+      entropy_1,
+      entropy_2,
+      index_of_coincidence_1,
+      index_of_coincidence_2,
       counts,
       overlapped_bigrams_count,
       non_overlapped_bigrams_count,
@@ -67,14 +74,14 @@ void lab2::calculateNonoverlappedBigramsCount(
   }
 }
 
-double lab2::calculateEntropy(
+double lab2::calculateEntropyL1(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
     const uint32_t text_size) {
   if (text_size == 0U) {
     return 0.0;
   }
   double entropy = 0.0;
-  for (const auto& [letter, count] : letter_counts) {
+  for (const auto& [_, count] : letter_counts) {
     double prob = static_cast<double>(count) / static_cast<double>(text_size);
     entropy += -prob * log2(prob);
   }
@@ -82,7 +89,23 @@ double lab2::calculateEntropy(
   return entropy;
 }
 
-double lab2::calculateIndexOfCoincidence(
+double lab2::calculateEntropyL2(
+    const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
+    const uint32_t text_size) {
+  if (text_size == 0U) {
+    return 0.0;
+  }
+  double entropy = 0.0;
+  for (const auto& [_, count] : overlapped_bigrams_count) {
+    double prob =
+        static_cast<double>(count) / static_cast<double>(text_size - 1);
+    entropy += -prob * log2(prob);
+  }
+
+  return entropy / 2;
+}
+
+double lab2::calculateIndexOfCoincidenceL1(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
     const uint32_t text_size) {
   if (text_size == 0U) {
@@ -91,9 +114,29 @@ double lab2::calculateIndexOfCoincidence(
   double index_of_coincidence = 0.0;
 
   for (const auto& [letter, count] : letter_counts) {
-    index_of_coincidence += static_cast<double>(count * (count - 1)) /
-                            static_cast<double>(text_size);
+    index_of_coincidence += static_cast<double>(count * (count - 1));
   }
+
+  index_of_coincidence /=
+      (static_cast<double>(text_size) * static_cast<double>(text_size - 1));
+
+  return index_of_coincidence;
+}
+
+double lab2::calculateIndexOfCoincidenceL2(
+    const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
+    const uint32_t text_size) {
+  if (text_size == 0U) {
+    return 0.0;
+  }
+  double index_of_coincidence = 0.0;
+
+  for (const auto& [_, count] : overlapped_bigrams_count) {
+    index_of_coincidence += static_cast<double>(count * (count - 1));
+  }
+
+  index_of_coincidence /=
+      (static_cast<double>(text_size) * static_cast<double>(text_size - 1));
 
   return index_of_coincidence;
 }

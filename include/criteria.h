@@ -28,9 +28,12 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
                         const Statistics& statistics);
 
 bool symbolicCriteria30(const std::vector<uint8_t>& text,
-                        const Statistics& statistics);
+                        const Statistics& statistic,
+                        const double entropyThresholdSymbols);
+
 bool symbolicCriteria51(const std::vector<uint8_t>& text,
-                        const Statistics& statistics);
+                        const Statistics& statistics, const size_t threshold,
+                        const size_t j);
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols);
@@ -44,9 +47,10 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria30(const std::vector<uint8_t>& text,
-                      const Statistics& statistics, const size_t threshold);
+                      const Statistics& statistics, const double threshold);
 bool bigramCriteria51(const std::vector<uint8_t>& text,
-                      const Statistics& statistics, const size_t threshold);
+                      const Statistics& statistics, const double threshold,
+                      const size_t j);
 
 bool structuralCriteria(const std::vector<uint8_t>& text);
 

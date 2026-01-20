@@ -13,8 +13,10 @@ namespace lab2 {
 
 struct Statistics {
   uint32_t text_size;
-  double entropy;
-  double index_of_coincidence;
+  double entropy_1;
+  double entropy_2;
+  double index_of_coincidence_1;
+  double index_of_coincidence_2;
 
   std::unordered_map<uint8_t, uint32_t> counts;
   std::unordered_map<uint16_t, uint32_t> overlapped_bigrams_count;
@@ -35,12 +37,20 @@ void calculateNonoverlappedBigramsCount(
     const std::vector<uint8_t>& bytes,
     std::unordered_map<uint16_t, uint32_t>& non_overlapped_bigrams_count);
 
-double calculateEntropy(
+double calculateEntropyL1(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
     const uint32_t text_size);
 
-double calculateIndexOfCoincidence(
+double calculateEntropyL2(
+    const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
+    const uint32_t text_size);
+
+double calculateIndexOfCoincidenceL1(
     const std::unordered_map<uint8_t, uint32_t>& letter_counts,
+    const uint32_t text_size);
+
+double calculateIndexOfCoincidenceL2(
+    const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
     const uint32_t text_size);
 
 void calculateForbiddenBigrams(
@@ -64,12 +74,16 @@ struct fmt::formatter<lab2::Statistics> : fmt::formatter<std::string> {
                           "Letters = {}/33\n"
                           "Overlapped bigrams = {},\n"
                           "Non-overlapped bigrams = {},\n"
-                          "Entropy = {},\n"
-                          "Index of coincidence = {}.\n",
+                          "Entropy(l=1) = {},\n"
+                          "Entropy(l=2) = {},\n"
+                          "Index of coincidence(l=1) = {}.\n"
+                          "Index of coincidence(l=2) = {}.\n",
                           statistics.text_size, statistics.counts.size(),
                           statistics.overlapped_bigrams_count.size(),
                           statistics.non_overlapped_bigrams_count.size(),
-                          statistics.entropy, statistics.index_of_coincidence);
+                          statistics.entropy_1, statistics.entropy_2,
+                          statistics.index_of_coincidence_1,
+                          statistics.index_of_coincidence_2);
   }
 };
 
