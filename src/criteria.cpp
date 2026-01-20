@@ -15,15 +15,6 @@ namespace lab2 {
 
 namespace {
 
-constexpr double kEntropyThresholdSymbols = 0.2;  // kH for l=1 (heuristic).
-constexpr double kEntropyThresholdBigrams =
-    0.3;  // kH for l=2 (looser due to higher variance).
-constexpr std::size_t kFrequentSymbols = 10;   // j for 5.1 (symbols).
-constexpr std::size_t kFrequentBigrams = 100;  // j for 5.1 (bigrams, lab uses
-                                               // 50/100/200 -> choose 100).
-constexpr std::size_t kEmptySymbols = 6;   // kempt for 5.1 (symbol, ~60% of j).
-constexpr std::size_t kEmptyBigrams = 60;  // kempt for 5.1 (bigram, ~60% of j).
-
 uint16_t makeBigram(uint8_t first, uint8_t second) {
   return static_cast<uint16_t>(first * ALPHABET_SIZE + second);
 }
@@ -171,7 +162,8 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
 }
 
 bool symbolicCriteria30(const std::vector<uint8_t>& text,
-                        const Statistics& statistics) {
+                        const Statistics& statistics,
+                        const double entropyThresholdSymbols) {
   if (text.empty() || statistics.text_size == 0U) {
     return true;
   }
@@ -182,11 +174,11 @@ bool symbolicCriteria30(const std::vector<uint8_t>& text,
   double sample_entropy = calculateEntropy(sample_counts, text.size());
 
   return std::abs(statistics.entropy - sample_entropy) >
-         kEntropyThresholdSymbols;
+         entropyThresholdSymbols;
 }
 
 bool symbolicCriteria51(const std::vector<uint8_t>& text,
-                        const Statistics& statistics) {
+                        const Statistics& statistics, const size_t threshold) {
   if (text.empty() || statistics.text_size == 0U) {
     return true;
   }
@@ -201,7 +193,7 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
   }
 
   const std::size_t top_count =
-      std::min<std::size_t>(kFrequentSymbols, ordered.size());
+      std::min<std::size_t>(threshold, ordered.size());
   if (top_count == 0U) {
     return true;
   }
@@ -228,7 +220,7 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
   }
 
   const std::size_t fempt = frequent_symbols.size() - seen.size();
-  return fempt >= kEmptySymbols;
+  return fempt >= threshold;
 }
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
@@ -363,7 +355,7 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
 }
 
 bool bigramCriteria30(const std::vector<uint8_t>& text,
-                      const Statistics& statistics) {
+                      const Statistics& statistics, const size_t threshold) {
   if (text.size() < 2U || statistics.text_size < 2U) {
     return true;
   }
@@ -376,7 +368,7 @@ bool bigramCriteria30(const std::vector<uint8_t>& text,
   }
 
   std::unordered_map<uint16_t, uint32_t> sample_counts;
-  sample_counts.reserve(std::min<std::size_t>(total, kFrequentBigrams));
+  sample_counts.reserve(std::min<std::size_t>(total, threshold));
   for (std::size_t i = 0; i + 1 < text.size(); ++i) {
     ++sample_counts[makeBigram(text[i], text[i + 1])];
   }
@@ -387,12 +379,11 @@ bool bigramCriteria30(const std::vector<uint8_t>& text,
       calculateEntropyFromCounts(statistics.overlapped_bigrams_count,
                                  static_cast<double>(baseline_total), 2U);
 
-  return std::abs(baseline_entropy - sample_entropy) > kEntropyThresholdBigrams;
+  return std::abs(baseline_entropy - sample_entropy) > threshold;
 }
 
-// Criterion 5.1 (empty boxes, most frequent bigrams, overlapped).
 bool bigramCriteria51(const std::vector<uint8_t>& text,
-                      const Statistics& statistics) {
+                      const Statistics& statistics, const size_t threshold) {
   if (text.size() < 2U || statistics.text_size < 2U) {
     return true;
   }
@@ -404,7 +395,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
   }
 
   const std::size_t top_count =
-      std::min<std::size_t>(kFrequentBigrams, ordered.size());
+      std::min<std::size_t>(threshold, ordered.size());
   if (top_count == 0U) {
     return true;
   }
@@ -432,7 +423,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
   }
 
   const std::size_t fempt = frequent_bigrams.size() - seen.size();
-  return fempt >= kEmptyBigrams;
+  return fempt >= threshold;
 }
 
 bool structuralCriteria(const std::vector<uint8_t>& text) {

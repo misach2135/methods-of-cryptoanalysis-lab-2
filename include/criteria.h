@@ -44,9 +44,9 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
                       const std::unordered_set<uint16_t>& forbidden_symbols,
                       const Statistics& statistics);
 bool bigramCriteria30(const std::vector<uint8_t>& text,
-                      const Statistics& statistics);
+                      const Statistics& statistics, const size_t threshold);
 bool bigramCriteria51(const std::vector<uint8_t>& text,
-                      const Statistics& statistics);
+                      const Statistics& statistics, const size_t threshold);
 
 bool structuralCriteria(const std::vector<uint8_t>& text);
 

@@ -1,4 +1,5 @@
 out/
+build/
 .vscode/
 
 # Latex auxilary files

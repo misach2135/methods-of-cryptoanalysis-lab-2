@@ -25,9 +25,6 @@
 constexpr uint32_t L_ARR[] = {10, 100, 1000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000};
 
-constexpr double BIGRAM_THRESHOLDS[] = {0.2, 0.4, 0.6};
-constexpr double SYMBOL_THRESHOLDS[] = {0.2, 0.4, 0.6};
-
 struct Loggers {
   std::shared_ptr<spdlog::logger> cli;
   std::shared_ptr<spdlog::logger> csv;
@@ -53,32 +50,44 @@ struct Chunk {
   std::vector<uint8_t> affine_bigram_text;
 };
 
-struct CriterionSpec {
-  std::string name;
-  uint8_t l;
-  std::function<bool(const std::vector<uint8_t>&)> apply;
+struct CriteriaResult {
+  double acception_count;
+  double rejection_count;
 };
 
-struct ResultKey {
-  std::string config;
-  uint32_t L;
-  std::string criterion;
-  uint8_t l;
+struct AnalyzeResultsPerText {
+  CriteriaResult criteria_10_symbol;
+  CriteriaResult criteria_10_bigram;
 
-  bool operator<(const ResultKey& other) const {
-    return std::tie(config, L, criterion, l) <
-           std::tie(other.config, other.L, other.criterion, other.l);
-  }
+  CriteriaResult criteria_11_symbol;
+  CriteriaResult criteria_11_bigram;
+
+  CriteriaResult criteria_12_symbol;
+  CriteriaResult criteria_12_bigram;
+
+  CriteriaResult criteria_13_symbol;
+  CriteriaResult criteria_13_bigram;
+
+  CriteriaResult criteria_30_symbol;
+  CriteriaResult criteria_30_bigram;
+
+  CriteriaResult criteria_51_symbol;
+  CriteriaResult criteria_51_bigram;
 };
 
-struct ResultCounts {
-  uint64_t fp = 0;
-  uint64_t fn = 0;
-  uint64_t n_h0 = 0;
-  uint64_t n_h1 = 0;
+struct AnalyzeResults {
+  AnalyzeResultsPerText plain_text;
+  AnalyzeResultsPerText vigenere_text_1;
+  AnalyzeResultsPerText vigenere_text_5;
+  AnalyzeResultsPerText vigenere_text_10;
+  AnalyzeResultsPerText affine_symbol_text;
+  AnalyzeResultsPerText affine_bigram_text;
 };
 
 Loggers setupLogger();
+
+AnalyzeResults analyzeChunks(const std::vector<Chunk>& chunks,
+                             const lab2::Statistics& lang_stats);
 
 int lab(const std::string& filepath, Loggers logs);
 
@@ -175,103 +184,18 @@ int lab(const std::string& filepath, Loggers logs) {
   logs.cli->info("Calculated statistics of preprocessed text:\n{}", statistics);
 
   logs.cli->info("Calculating forbidden symbols/bigrams for criteria.");
-  std::vector<
-      std::pair<uint32_t, std::shared_ptr<const std::unordered_set<uint8_t>>>>
-      symbol_forbidden_sets;
-  symbol_forbidden_sets.reserve(std::size(SYMBOL_THRESHOLDS));
-  for (auto threshold : SYMBOL_THRESHOLDS) {
-    auto forbidden = std::make_shared<std::unordered_set<uint8_t>>();
-    lab2::calculateForbiddenSymbols(*forbidden, statistics.counts, threshold);
-    symbol_forbidden_sets.push_back({threshold, std::move(forbidden)});
-  }
 
-  std::vector<
-      std::pair<uint32_t, std::shared_ptr<const std::unordered_set<uint16_t>>>>
-      bigram_forbidden_sets;
-  bigram_forbidden_sets.reserve(std::size(BIGRAM_THRESHOLDS));
-  for (auto threshold : BIGRAM_THRESHOLDS) {
-    auto forbidden = std::make_shared<std::unordered_set<uint16_t>>();
-    lab2::calculateForbiddenBigrams(
-        *forbidden, statistics.overlapped_bigrams_count, threshold);
-    bigram_forbidden_sets.push_back({threshold, std::move(forbidden)});
-  }
+  std::unordered_set<uint8_t> forbidden_symbols;
+  std::unordered_set<uint16_t> forbidden_bigrams;
 
-  std::vector<CriterionSpec> criteria;
-  criteria.reserve(std::size(SYMBOL_THRESHOLDS) * 4U +
-                   std::size(BIGRAM_THRESHOLDS) * 4U + 4U);
+  lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
+                                  statistics.text_size / 25);
 
-  for (const auto& entry : symbol_forbidden_sets) {
-    const uint32_t threshold = entry.first;
-    const auto& forbidden = entry.second;
-    const std::string suffix = "_k" + std::to_string(threshold);
+  lab2::calculateForbiddenBigrams(forbidden_bigrams,
+                                  statistics.overlapped_bigrams_count, 1);
 
-    criteria.push_back(
-        {"sym_1.0" + suffix, 1, [forbidden](const std::vector<uint8_t>& text) {
-           return lab2::symbolicCriteria10(text, *forbidden);
-         }});
-    criteria.push_back(
-        {"sym_1.1" + suffix, 1,
-         [forbidden, threshold](const std::vector<uint8_t>& text) {
-           return lab2::symbolicCriteria11(text, *forbidden, threshold);
-         }});
-    criteria.push_back(
-        {"sym_1.2" + suffix, 1,
-         [forbidden, &statistics](const std::vector<uint8_t>& text) {
-           return lab2::symbolicCriteria12(text, *forbidden, statistics);
-         }});
-    criteria.push_back(
-        {"sym_1.3" + suffix, 1,
-         [forbidden, &statistics](const std::vector<uint8_t>& text) {
-           return lab2::symbolicCriteria13(text, *forbidden, statistics);
-         }});
-  }
+  std::array<std::vector<Chunk>, std::size(L_ARR)> chunks;
 
-  criteria.push_back(
-      {"sym_3.0", 1, [&statistics](const std::vector<uint8_t>& text) {
-         return lab2::symbolicCriteria30(text, statistics);
-       }});
-  criteria.push_back(
-      {"sym_5.1", 1, [&statistics](const std::vector<uint8_t>& text) {
-         return lab2::symbolicCriteria51(text, statistics);
-       }});
-
-  for (const auto& entry : bigram_forbidden_sets) {
-    const uint32_t threshold = entry.first;
-    const auto& forbidden = entry.second;
-    const std::string suffix = "_k" + std::to_string(threshold);
-
-    criteria.push_back(
-        {"big_1.0" + suffix, 2, [forbidden](const std::vector<uint8_t>& text) {
-           return lab2::bigramCriteria10(text, *forbidden);
-         }});
-    criteria.push_back(
-        {"big_1.1" + suffix, 2,
-         [forbidden, threshold](const std::vector<uint8_t>& text) {
-           return lab2::bigramCriteria11(text, *forbidden, threshold);
-         }});
-    criteria.push_back(
-        {"big_1.2" + suffix, 2,
-         [forbidden, &statistics](const std::vector<uint8_t>& text) {
-           return lab2::bigramCriteria12(text, *forbidden, statistics);
-         }});
-    criteria.push_back(
-        {"big_1.3" + suffix, 2,
-         [forbidden, &statistics](const std::vector<uint8_t>& text) {
-           return lab2::bigramCriteria13(text, *forbidden, statistics);
-         }});
-  }
-
-  criteria.push_back(
-      {"big_3.0", 2, [&statistics](const std::vector<uint8_t>& text) {
-         return lab2::bigramCriteria30(text, statistics);
-       }});
-  criteria.push_back(
-      {"big_5.1", 2, [&statistics](const std::vector<uint8_t>& text) {
-         return lab2::bigramCriteria51(text, statistics);
-       }});
-  logs.cli->info("Prepared {} criteria.", criteria.size());
-
-  std::vector<Chunk> chunks;
   auto cursor = bytes_vec.begin();
 
   logs.cli->info("Start creating chunks");
@@ -360,7 +284,7 @@ int lab(const std::string& filepath, Loggers logs) {
       t4.join();
       t5.join();
 
-      chunks.push_back({
+      chunks[i].push_back({
           l,
           a1,
           b1,
@@ -382,91 +306,40 @@ int lab(const std::string& filepath, Loggers logs) {
 
   logs.cli->info("Total chunks: {}", chunks.size());
 
-  logs.cli->info("criteria_return_true_means=H1");
-  logs.cli->info("Applying criterias to chunks...");
+  logs.cli->info("Start chunks analization");
 
-  const std::array<std::string, 6> config_names = {
-      "vigenere_r1",   "vigenere_r5",   "vigenere_r10",
-      "affine_symbol", "affine_bigram", "plain_text"};
+  for (int i = 0; i < chunks.size(); i++) {
+    int l = L_ARR[i];
 
-  std::map<ResultKey, ResultCounts> results;
-  std::vector<uint8_t> h0_results(criteria.size());
-
-  for (const auto& chunk : chunks) {
-    const std::array<const std::vector<uint8_t>*, 6> h1_texts = {
-        &chunk.vigenere_text_1,    &chunk.vigenere_text_5,
-        &chunk.vigenere_text_10,   &chunk.affine_symbol_text,
-        &chunk.affine_bigram_text, &chunk.plain_text,
-    };
-
-    const auto& h0_text = chunk.plain_text;
-    for (std::size_t c = 0; c < criteria.size(); ++c) {
-      h0_results[c] = criteria[c].apply(h0_text) ? 1U : 0U;
-    }
-
-    for (std::size_t i = 0; i < config_names.size(); ++i) {
-      const auto& config = config_names[i];
-      const auto& h1_text = *h1_texts[i];
-
-      for (std::size_t c = 0; c < criteria.size(); ++c) {
-        const auto& criterion = criteria[c];
-        const bool h0_is_h1 = h0_results[c] != 0U;
-        const bool h1_is_h1 = criterion.apply(h1_text);
-
-        ResultKey key{config, chunk.l, criterion.name, criterion.l};
-        auto& counts = results[key];
-        ++counts.n_h0;
-        ++counts.n_h1;
-        if (h0_is_h1) {
-          ++counts.fp;
-        }
-        if (!h1_is_h1) {
-          ++counts.fn;
-        }
-      }
-    }
-  }
-
-  logs.cli->info("Writing CSV results.");
-  for (const auto& [key, counts] : results) {
-    const double fp =
-        (counts.n_h0 == 0U)
-            ? 0.0
-            : static_cast<double>(counts.fp) / static_cast<double>(counts.n_h0);
-    const double fn =
-        (counts.n_h1 == 0U)
-            ? 0.0
-            : static_cast<double>(counts.fn) / static_cast<double>(counts.n_h1);
-
-    logs.csv->info("{},{},{},{},{:.6f},{:.6f},{},{}", key.config, key.L,
-                   key.criterion, static_cast<uint32_t>(key.l), fp, fn,
-                   counts.n_h0, counts.n_h1);
-  }
-
-  logs.cli->info("Summary (FP/FN per config and L):");
-  std::string current_config;
-  uint32_t current_L = 0U;
-  bool first = true;
-  for (const auto& [key, counts] : results) {
-    const double fp =
-        (counts.n_h0 == 0U)
-            ? 0.0
-            : static_cast<double>(counts.fp) / static_cast<double>(counts.n_h0);
-    const double fn =
-        (counts.n_h1 == 0U)
-            ? 0.0
-            : static_cast<double>(counts.fn) / static_cast<double>(counts.n_h1);
-
-    if (first || key.config != current_config || key.L != current_L) {
-      logs.cli->info("config={}, L={}", key.config, key.L);
-      current_config = key.config;
-      current_L = key.L;
-      first = false;
-    }
-
-    logs.cli->info("  criterion={}, l={}, FP={:.4f}, FN={:.4f}", key.criterion,
-                   static_cast<uint32_t>(key.l), fp, fn);
+    auto res = analyzeChunks(chunks[i], statistics);
   }
 
   return 0;
+}
+
+AnalyzeResults analyzeChunks(
+    const std::vector<Chunk>& chunks, const lab2::Statistics& lang_stats,
+    const std::unordered_set<uint8_t>& forbidden_symbols,
+    const std::unordered_set<uint16_t>& forbidden_bigrams) {
+  CriteriaResult criteria_10_symbol;
+  CriteriaResult criteria_10_bigram;
+
+  CriteriaResult criteria_11_symbol;
+  CriteriaResult criteria_11_bigram;
+
+  CriteriaResult criteria_12_symbol;
+  CriteriaResult criteria_12_bigram;
+
+  CriteriaResult criteria_13_symbol;
+  CriteriaResult criteria_13_bigram;
+
+  CriteriaResult criteria_30_symbol;
+  CriteriaResult criteria_30_bigram;
+
+  CriteriaResult criteria_51_symbol;
+  CriteriaResult criteria_51_bigram;
+
+  for (int i = 0; i < chunks.size(); i++) {
+    lab2::symbolicCriteria10(chunks[i].plain_text, )
+  }
 }
