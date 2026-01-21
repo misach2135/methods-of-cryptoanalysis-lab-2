@@ -31,4 +31,5 @@ target_sources(
     src/text_transformations.cpp
     src/statistics.cpp
     src/criteria.cpp
+    src/interfaces.cpp
 )

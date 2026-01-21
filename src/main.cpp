@@ -1,4 +1,5 @@
 #include <spdlog/async.h>
+#include <spdlog/fmt/fmt.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
@@ -18,17 +19,40 @@
 
 #include "alphabet.h"
 #include "criteria.h"
+#include "interfaces.h"
 #include "statistics.h"
 #include "text_processor.h"
 #include "text_transformations.h"
 #include "utils.h"
 
-constexpr uint32_t L_ARR[] = {10, 100, 1000};
-constexpr uint32_t N_ARR[] = {10000, 10000, 10000};
+constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
+constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
 
 struct Loggers {
   std::shared_ptr<spdlog::logger> cli;
   std::shared_ptr<spdlog::logger> csv;
+};
+
+struct SerializedResult {
+  uint32_t l;  // Text width
+  uint32_t lgramSize;
+  std::string criteria_identifier;
+  std::string text_identifier;
+  uint32_t h0;
+  uint32_t h1;
+  double fp;
+  double fn;
+};
+
+template <>
+struct fmt::formatter<SerializedResult> : fmt::formatter<std::string> {
+  auto format(SerializedResult results, fmt::format_context& ctx) const
+      -> decltype(ctx.out()) {
+    return fmt::format_to(ctx.out(), "{},{},{},{},{},{},{},{}", results.l,
+                          results.lgramSize, results.criteria_identifier,
+                          results.text_identifier, results.h0, results.h1,
+                          results.fp, results.fn);
+  }
 };
 
 Loggers setupLogger();
@@ -83,7 +107,7 @@ Loggers setupLogger() {
     }
   }
   if (write_header) {
-    csv->info("text_type,L,criterion,FP1,FN1,FP2,FN2");
+    csv->info("l,lgramSize,criteria_id,text_id,h0,h1,fp,fn");
   }
 
   return {cli, csv};
@@ -293,6 +317,7 @@ int lab(const std::string& filepath, Loggers logs) {
       t3.join();
       t4.join();
       t5.join();
+      t6.join();
     }
     logs.cli->info("Generated {} texts", n);
   }
@@ -307,6 +332,22 @@ int lab(const std::string& filepath, Loggers logs) {
 
   lab2::calculateForbiddenBigrams(forbidden_bigrams,
                                   statistics.overlapped_bigrams_count, 1);
+
+  logs.cli->info("Calculating criterias...");
+
+  // TODO
+  std::vector<std::thread> threadPool;
+
+  for (int i = 0; i < plain_texts.size(); i++) {
+    threadPool.push_back(std::thread([&]() {
+      auto res10bi = applyBigramCriteria10(plain_texts[i], forbidden_bigrams);
+      auto serialized_results = SerializedResult{
+          L_ARR[i],         2,   "c10bi", "plain", res10bi.h0_count,
+          res10bi.h1_count, 0.0, 0.0};
+
+      logs.csv->info("{}", serialized_results);
+    }));
+  }
 
   return 0;
 }

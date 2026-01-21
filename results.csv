@@ -1,1 +1,5 @@
-text_type,L,criterion,FP1,FN1,FP2,FN2
+l,lgramSize,criteria_id,text_id,h0,h1,fp,fn
+10,2,c10bi,plain,10000,0,0,0
+100,2,c10bi,plain,10000,0,0,0
+1000,2,c10bi,plain,10000,0,0,0
+10000,2,c10bi,plain,247,0,0,0
