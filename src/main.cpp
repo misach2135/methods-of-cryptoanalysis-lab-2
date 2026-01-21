@@ -30,7 +30,8 @@ constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
 
 struct Loggers {
   std::shared_ptr<spdlog::logger> cli;
-  std::shared_ptr<spdlog::logger> csv;
+  std::shared_ptr<spdlog::logger> crtireia_stats_csv;
+  std::shared_ptr<spdlog::logger> criteria_structural_csv;
 };
 
 struct SerializedResult {
@@ -82,22 +83,32 @@ Loggers setupLogger() {
   auto cli_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
   cli_sink->set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
 
-  auto csv_sink =
-      std::make_shared<spdlog::sinks::basic_file_sink_mt>("results.csv", true);
-  csv_sink->set_pattern("%v");
+  auto criteria_csv_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+      "criteria_stats.csv", true);
+  criteria_csv_sink->set_pattern("%v");
+
+  auto structural_csv_sink =
+      std::make_shared<spdlog::sinks::basic_file_sink_mt>(
+          "criteria_structural.csv", true);
+  structural_csv_sink->set_pattern("%v");
 
   auto cli = std::make_shared<spdlog::async_logger>(
       "cli", cli_sink, spdlog::thread_pool(),
       spdlog::async_overflow_policy::block);
-  auto csv = std::make_shared<spdlog::async_logger>(
-      "csv", csv_sink, spdlog::thread_pool(),
+  auto criteria_csv = std::make_shared<spdlog::async_logger>(
+      "criteria_csv", criteria_csv_sink, spdlog::thread_pool(),
+      spdlog::async_overflow_policy::block);
+
+  auto structural_csv = std::make_shared<spdlog::async_logger>(
+      "structural_csv", structural_csv_sink, spdlog::thread_pool(),
       spdlog::async_overflow_policy::block);
 
   cli->set_level(spdlog::level::info);
-  csv->set_level(spdlog::level::info);
+  criteria_csv->set_level(spdlog::level::info);
+  structural_csv->set_level(spdlog::level::info);
 
   spdlog::register_logger(cli);
-  spdlog::register_logger(csv);
+  spdlog::register_logger(criteria_csv);
 
   bool write_header = true;
   {
@@ -107,10 +118,11 @@ Loggers setupLogger() {
     }
   }
   if (write_header) {
-    csv->info("l,lgramSize,criteria_id,text_id,h0,h1,fp,fn");
+    criteria_csv->info("l,lgramSize,criteria_id,text_id,h0,h1,fp,fn");
+    structural_csv->info("text_id,l,abg_bits_per_byte");
   }
 
-  return {cli, csv};
+  return {cli, criteria_csv, structural_csv};
 }
 
 int lab(const std::string& filepath, Loggers logs) {
@@ -357,22 +369,32 @@ int lab(const std::string& filepath, Loggers logs) {
       (bigram_j == 0U) ? 0U : (bigram_j < 3U ? bigram_j : 3U);
 
   std::vector<std::thread> threadPool;
-  constexpr std::size_t kCriteriaCount = 12U;
-  constexpr std::size_t kTextSetCount = 14U;
-  threadPool.reserve(plain_texts.size() * kCriteriaCount * kTextSetCount);
+
+  constexpr std::size_t criteria_count = 12U;
+  constexpr std::size_t text_count = 14U;
+  threadPool.reserve(plain_texts.size() * criteria_count * text_count);
 
   auto log_results = [&](std::size_t idx, uint32_t lgram_size,
                          const char* criteria_id, const char* text_id,
                          const CriteriaResult& res) {
-    auto serialized_results =
-        SerializedResult{L_ARR[idx],   lgram_size,   criteria_id, text_id,
-                         res.h0_count, res.h1_count, 0.0,         0.0};
-    logs.csv->info("{}", serialized_results);
+    auto serialized_results = SerializedResult{
+        L_ARR[idx],
+        lgram_size,
+        criteria_id,
+        text_id,
+        res.h0_count,
+        res.h1_count,
+        res.h0_count / static_cast<double>(N_ARR[idx]),
+        res.h1_count / static_cast<double>(N_ARR[idx]),
+    };
+    logs.crtireia_stats_csv->info("{}", serialized_results);
   };
 
   auto enqueue_criteria_for_texts =
       [&](const std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>&
               texts,
+          const std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>&
+              compressed_texts,
           const char* text_id) {
         for (std::size_t i = 0; i < texts.size(); i++) {
           threadPool.emplace_back([&, i, text_id]() {
@@ -433,23 +455,34 @@ int lab(const std::string& filepath, Loggers logs) {
                                              bigram51_threshold, bigram_j);
             log_results(i, 2U, "c51bi", text_id, res);
           });
+          threadPool.emplace_back([&, i, text_id]() {
+            double avg_bits_per_byte = 0.0;
+            for (size_t j = 0; j < compressed_texts[i].size(); j++) {
+              avg_bits_per_byte += lab2::getBitsPerSymbol(
+                  texts[i][j].size(), compressed_texts[i][j].size());
+            }
+            avg_bits_per_byte /= compressed_texts[i].size();
+
+            logs.cli->info(
+                "Avg bits per byte for text of type {} of size {} : {}",
+                text_id, L_ARR[i], avg_bits_per_byte);
+            logs.criteria_structural_csv->info("{},{},{}", text_id, L_ARR[i],
+                                               avg_bits_per_byte);
+          });
         }
       };
-
-  enqueue_criteria_for_texts(plain_texts, "plain");
-  enqueue_criteria_for_texts(vigenere_texts_1, "vig1");
-  enqueue_criteria_for_texts(vigenere_texts_5, "vig5");
-  enqueue_criteria_for_texts(vigenere_texts_10, "vig10");
-  enqueue_criteria_for_texts(affine_symbol_texts, "affine_sym");
-  enqueue_criteria_for_texts(affine_bigram_texts, "affine_bi");
-  enqueue_criteria_for_texts(random_texts, "random");
-  enqueue_criteria_for_texts(compressed_plain_texts, "c_plain");
-  enqueue_criteria_for_texts(compressed_vigenere_texts_1, "c_vig1");
-  enqueue_criteria_for_texts(compressed_vigenere_texts_5, "c_vig5");
-  enqueue_criteria_for_texts(compressed_vigenere_texts_10, "c_vig10");
-  enqueue_criteria_for_texts(compressed_affine_symbol_texts, "c_affine_sym");
-  enqueue_criteria_for_texts(compressed_affine_bigram_texts, "c_affine_bi");
-  enqueue_criteria_for_texts(compressed_random_texts, "c_random");
+  enqueue_criteria_for_texts(plain_texts, compressed_plain_texts, "plain");
+  enqueue_criteria_for_texts(vigenere_texts_1, compressed_vigenere_texts_1,
+                             "vig1");
+  enqueue_criteria_for_texts(vigenere_texts_5, compressed_vigenere_texts_5,
+                             "vig5");
+  enqueue_criteria_for_texts(vigenere_texts_10, compressed_vigenere_texts_10,
+                             "vig10");
+  enqueue_criteria_for_texts(affine_symbol_texts,
+                             compressed_affine_symbol_texts, "affine_sym");
+  enqueue_criteria_for_texts(affine_bigram_texts,
+                             compressed_affine_bigram_texts, "affine_bi");
+  enqueue_criteria_for_texts(random_texts, compressed_random_texts, "random");
 
   for (auto& worker : threadPool) {
     if (worker.joinable()) {

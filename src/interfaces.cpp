@@ -120,3 +120,11 @@ CriteriaResult applyBigramCriteria51(
     return lab2::bigramCriteria51(text, statistics, threshold, j);
   });
 }
+
+// CriteriaResult applyStructuralCriteria(
+//     const std::vector<std::vector<uint8_t>>& texts,
+//     const std::vector<std::vector<uint8_t>>& compressed_texts) {
+//   return applyCriteriaToTexts(texts, [&](const std::vector<uint8_t>& text) {
+//     return lab2::getBitsPerSymbol(text, statistics, threshold, j);
+//   });
+// }

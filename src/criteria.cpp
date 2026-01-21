@@ -369,8 +369,8 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
   return ft > threshold;
 }
 
-double get_bits_per_symbol(const size_t original_size,
-                           const size_t compessed_size) {
+double getBitsPerSymbol(const size_t original_size,
+                        const size_t compessed_size) {
   return static_cast<double>(compessed_size * 8) / original_size;
 }
 

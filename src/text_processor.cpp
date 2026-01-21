@@ -88,14 +88,14 @@ std::vector<uint8_t> lab2::generateRandomText(size_t len) {
   // TODO: Move to another place?
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> distrib(0, ALPHABET_SIZE);
+  std::uniform_int_distribution<> distrib(0, ALPHABET_SIZE - 1);
 
   std::vector<uint8_t> v;
 
   while (len--) {
     uint8_t a = distrib(gen);
     uint8_t b = distrib(gen);
-    v.push_back((a + b) % (ALPHABET_SIZE + 1));
+    v.push_back((a + b) % (ALPHABET_SIZE));
   }
 
   return v;
