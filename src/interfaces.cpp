@@ -56,18 +56,17 @@ CriteriaResult applySymbolCriteria13(
 
 CriteriaResult applySymbolCriteria30(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics) {
+    const lab2::Statistics& statistics, const double threshold) {
   return applyCriteriaToTexts(texts, [&](const std::vector<uint8_t>& text) {
-    return lab2::symbolicCriteria30(text, statistics, 0.0);
+    return lab2::symbolicCriteria30(text, statistics, threshold);
   });
 }
 
 CriteriaResult applySymbolCriteria51(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics, uint32_t j) {
+    const lab2::Statistics& statistics, size_t threshold, size_t j) {
   return applyCriteriaToTexts(texts, [&](const std::vector<uint8_t>& text) {
-    return lab2::symbolicCriteria51(text, statistics, static_cast<size_t>(j),
-                                    4);
+    return lab2::symbolicCriteria51(text, statistics, threshold, j);
   });
 }
 
@@ -108,16 +107,16 @@ CriteriaResult applyBigramCriteria13(
 
 CriteriaResult applyBigramCriteria30(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics) {
+    const lab2::Statistics& statistics, const double threshold) {
   return applyCriteriaToTexts(texts, [&](const std::vector<uint8_t>& text) {
-    return lab2::bigramCriteria30(text, statistics, 0U);
+    return lab2::bigramCriteria30(text, statistics, threshold);
   });
 }
 
 CriteriaResult applyBigramCriteria51(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics, uint32_t j) {
+    const lab2::Statistics& statistics, size_t threshold, size_t j) {
   return applyCriteriaToTexts(texts, [&](const std::vector<uint8_t>& text) {
-    return lab2::bigramCriteria51(text, statistics, static_cast<size_t>(j), 4);
+    return lab2::bigramCriteria51(text, statistics, threshold, j);
   });
 }

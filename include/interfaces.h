@@ -31,11 +31,11 @@ CriteriaResult applySymbolCriteria13(
 
 CriteriaResult applySymbolCriteria30(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics);
+    const lab2::Statistics& statistics, const double threshold);
 
 CriteriaResult applySymbolCriteria51(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics, uint32_t j);
+    const lab2::Statistics& statistics, size_t threshold, size_t j);
 
 CriteriaResult applyBigramCriteria10(
     const std::vector<std::vector<uint8_t>> texts,
@@ -57,10 +57,10 @@ CriteriaResult applyBigramCriteria13(
 
 CriteriaResult applyBigramCriteria30(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics);
+    const lab2::Statistics& statistics, const double threshold);
 
 CriteriaResult applyBigramCriteria51(
     const std::vector<std::vector<uint8_t>> texts,
-    const lab2::Statistics& statistics, uint32_t j);
+    const lab2::Statistics& statistics, size_t threshold, size_t j);
 
 #endif
