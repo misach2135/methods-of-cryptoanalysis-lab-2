@@ -335,18 +335,126 @@ int lab(const std::string& filepath, Loggers logs) {
 
   logs.cli->info("Calculating criterias...");
 
-  // TODO
+  const std::size_t symbol_kp =
+      forbidden_symbols.empty()
+          ? 1U
+          : (forbidden_symbols.size() < 3U ? forbidden_symbols.size() : 3U);
+  const std::size_t bigram_kp =
+      forbidden_bigrams.empty()
+          ? 1U
+          : (forbidden_bigrams.size() < 3U ? forbidden_bigrams.size() : 3U);
+  constexpr double kSymbolEntropyThreshold = 0.1;
+  constexpr double kBigramEntropyThreshold = 0.1;
+  constexpr std::size_t kSymbol51Threshold = 3U;
+  constexpr std::size_t kSymbol51J = 0U;
+
+  std::size_t bigram_j = 0U;
+  const std::size_t bigram_count = statistics.overlapped_bigrams_count.size();
+  if (bigram_count > 1U) {
+    bigram_j = (bigram_count < 6U) ? (bigram_count - 1U) : 5U;
+  }
+  const std::size_t bigram51_threshold =
+      (bigram_j == 0U) ? 0U : (bigram_j < 3U ? bigram_j : 3U);
+
   std::vector<std::thread> threadPool;
+  constexpr std::size_t kCriteriaCount = 12U;
+  constexpr std::size_t kTextSetCount = 14U;
+  threadPool.reserve(plain_texts.size() * kCriteriaCount * kTextSetCount);
 
-  for (int i = 0; i < plain_texts.size(); i++) {
-    threadPool.push_back(std::thread([&]() {
-      auto res10bi = applyBigramCriteria10(plain_texts[i], forbidden_bigrams);
-      auto serialized_results = SerializedResult{
-          L_ARR[i],         2,   "c10bi", "plain", res10bi.h0_count,
-          res10bi.h1_count, 0.0, 0.0};
+  auto log_results = [&](std::size_t idx, uint32_t lgram_size,
+                         const char* criteria_id, const char* text_id,
+                         const CriteriaResult& res) {
+    auto serialized_results =
+        SerializedResult{L_ARR[idx],   lgram_size,   criteria_id, text_id,
+                         res.h0_count, res.h1_count, 0.0,         0.0};
+    logs.csv->info("{}", serialized_results);
+  };
 
-      logs.csv->info("{}", serialized_results);
-    }));
+  auto enqueue_criteria_for_texts =
+      [&](const std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>&
+              texts,
+          const char* text_id) {
+        for (std::size_t i = 0; i < texts.size(); i++) {
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applySymbolCriteria10(texts[i], forbidden_symbols);
+            log_results(i, 1U, "c10sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applySymbolCriteria11(texts[i], forbidden_symbols, symbol_kp);
+            log_results(i, 1U, "c11sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applySymbolCriteria12(texts[i], forbidden_symbols, statistics);
+            log_results(i, 1U, "c12sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applySymbolCriteria13(texts[i], forbidden_symbols, statistics);
+            log_results(i, 1U, "c13sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applySymbolCriteria30(texts[i], statistics,
+                                             kSymbolEntropyThreshold);
+            log_results(i, 1U, "c30sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applySymbolCriteria51(texts[i], statistics,
+                                             kSymbol51Threshold, kSymbol51J);
+            log_results(i, 1U, "c51sy", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applyBigramCriteria10(texts[i], forbidden_bigrams);
+            log_results(i, 2U, "c10bi", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applyBigramCriteria11(texts[i], forbidden_bigrams, bigram_kp);
+            log_results(i, 2U, "c11bi", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applyBigramsCriteria12(texts[i], forbidden_bigrams, statistics);
+            log_results(i, 2U, "c12bi", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res =
+                applyBigramCriteria13(texts[i], forbidden_bigrams, statistics);
+            log_results(i, 2U, "c13bi", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applyBigramCriteria30(texts[i], statistics,
+                                             kBigramEntropyThreshold);
+            log_results(i, 2U, "c30bi", text_id, res);
+          });
+          threadPool.emplace_back([&, i, text_id]() {
+            auto res = applyBigramCriteria51(texts[i], statistics,
+                                             bigram51_threshold, bigram_j);
+            log_results(i, 2U, "c51bi", text_id, res);
+          });
+        }
+      };
+
+  enqueue_criteria_for_texts(plain_texts, "plain");
+  enqueue_criteria_for_texts(vigenere_texts_1, "vig1");
+  enqueue_criteria_for_texts(vigenere_texts_5, "vig5");
+  enqueue_criteria_for_texts(vigenere_texts_10, "vig10");
+  enqueue_criteria_for_texts(affine_symbol_texts, "affine_sym");
+  enqueue_criteria_for_texts(affine_bigram_texts, "affine_bi");
+  enqueue_criteria_for_texts(random_texts, "random");
+  enqueue_criteria_for_texts(compressed_plain_texts, "c_plain");
+  enqueue_criteria_for_texts(compressed_vigenere_texts_1, "c_vig1");
+  enqueue_criteria_for_texts(compressed_vigenere_texts_5, "c_vig5");
+  enqueue_criteria_for_texts(compressed_vigenere_texts_10, "c_vig10");
+  enqueue_criteria_for_texts(compressed_affine_symbol_texts, "c_affine_sym");
+  enqueue_criteria_for_texts(compressed_affine_bigram_texts, "c_affine_bi");
+  enqueue_criteria_for_texts(compressed_random_texts, "c_random");
+
+  for (auto& worker : threadPool) {
+    if (worker.joinable()) {
+      worker.join();
+    }
   }
 
   return 0;
