@@ -1,0 +1,14 @@
+[criteria_thresholds]
+c11l1_threshold = 0
+c30l1_threshold = 0
+c51l1_j = 0
+c51l1_threshold = 0
+c11l2_threshold = 0
+c30l2_threshold = 0
+c51l2_j = 0
+c51l2_threshold = 0
+c_structural_threshold = 0
+
+[forbidden_lgrams]
+forbidden_symbols = 0.1
+forbidden_bigrams = 0.3

@@ -23,10 +23,28 @@
 #include "statistics.h"
 #include "text_processor.h"
 #include "text_transformations.h"
+#include "toml.hpp"
 #include "utils.h"
 
 constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
+
+struct Config {
+  double c11l1_threshold;
+  double c30l1_threshold;
+  double c51l1_j;
+  double c51l1_threshold;
+
+  double c11l2_threshold;
+  double c30l2_threshold;
+  double c51l2_j;
+  double c51l2_threshold;
+
+  double c_structural_threshold;
+
+  double forbidden_symbols;
+  double forbidden_bigrams;
+};
 
 struct Loggers {
   std::shared_ptr<spdlog::logger> cli;
@@ -58,17 +76,20 @@ struct fmt::formatter<SerializedResult> : fmt::formatter<std::string> {
 
 Loggers setupLogger();
 
-int lab(const std::string& filepath, Loggers logs);
+Config loadConfig(const std::string& filename);
+
+int lab(const std::string& filepath, Config config, Loggers logs);
 
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    spdlog::error("Error: Path to the text is required.");
+  if (argc != 3) {
+    spdlog::error("Error: Some argument is missing.");
     return -1;
   }
 
   auto logs = setupLogger();
+  auto config = loadConfig(argv[1]);
 
-  auto res = lab(argv[1], std::move(logs));
+  auto res = lab(argv[2], std::move(config), std::move(logs));
 
   spdlog::shutdown();
 
@@ -125,7 +146,25 @@ Loggers setupLogger() {
   return {cli, criteria_csv, structural_csv};
 }
 
-int lab(const std::string& filepath, Loggers logs) {
+Config loadConfig(const std::string& filename) {
+  auto config = toml::parse_file(filename);
+
+  return Config{
+      config["criteria_thresholds"]["c11l1_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c30l1_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c51l1_j"].value_or(0.0),
+      config["criteria_thresholds"]["c51l1_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c11l2_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c30l2_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c51l2_j"].value_or(0.0),
+      config["criteria_thresholds"]["c51l2_threshold"].value_or(0.0),
+      config["criteria_thresholds"]["c_structural_threshold"].value_or(0.0),
+      config["forbidden_lgrams"]["forbidden_symbols"].value_or(0.0),
+      config["forbidden_lgrams"]["forbidden_bigrams"].value_or(0.0),
+  };
+}
+
+int lab(const std::string& filepath, Config config, Loggers logs) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<uint8_t> uniform_distribution(0, ALPHABET_SIZE);

@@ -161,44 +161,53 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
     return true;
   }
 
-  std::vector<std::pair<uint8_t, uint32_t>> ordered;
-  ordered.reserve(ALPHABET_SIZE);
-  for (uint16_t c = 0; c < ALPHABET_SIZE; ++c) {
-    const auto symbol = static_cast<uint8_t>(c);
-    auto it = statistics.counts.find(symbol);
-    const uint32_t count = (it == statistics.counts.end()) ? 0U : it->second;
-    ordered.push_back({symbol, count});
+  if (statistics.counts.empty() || j == 0U) {
+    return true;
   }
 
-  const std::size_t top_count =
-      std::min<std::size_t>(threshold, ordered.size());
+  std::vector<std::pair<int, int>> ordered(statistics.counts.begin(),
+                                           statistics.counts.end());
+
+  const std::size_t top_count = std::min<std::size_t>(j, ordered.size());
   if (top_count == 0U) {
     return true;
   }
 
-  std::partial_sort(
-      ordered.begin(), ordered.begin() + top_count, ordered.end(),
-      [](const auto& lhs, const auto& rhs) { return lhs.second > rhs.second; });
-
-  std::unordered_set<uint8_t> frequent_symbols;
-  frequent_symbols.reserve(top_count * 2U);
-  for (std::size_t i = 0; i < top_count; ++i) {
-    frequent_symbols.insert(ordered[i].first);
+  if (top_count < ordered.size()) {
+    std::nth_element(
+        ordered.begin(), ordered.begin() + top_count, ordered.end(),
+        [](const auto& a, const auto& b) { return a.second > b.second; });
+    ordered.resize(top_count);
   }
 
-  std::unordered_set<uint8_t> seen;
-  seen.reserve(top_count);
-  for (auto symbol : text) {
-    if (frequent_symbols.find(symbol) != frequent_symbols.end()) {
-      seen.insert(symbol);
-      if (seen.size() == frequent_symbols.size()) {
-        break;
-      }
+  std::unordered_set<uint8_t> sSet;
+  sSet.reserve(ordered.size() * 2U);
+  for (std::size_t i = 0; i < ordered.size(); ++i) {
+    sSet.insert(static_cast<uint8_t>(ordered[i].first));
+  }
+
+  std::unordered_map<uint8_t, uint32_t> boxes;
+  boxes.reserve(ordered.size());
+  for (const auto& [sym_i32, _cnt] : ordered) {
+    boxes.emplace(static_cast<uint8_t>(sym_i32), 0U);
+  }
+
+  for (std::size_t i = 0; i < text.size(); ++i) {
+    const auto sym = text[i];
+    if (sSet.find(sym) != sSet.end()) {
+      boxes[sym]++;
     }
   }
 
-  const std::size_t fempt = frequent_symbols.size() - seen.size();
-  return fempt >= threshold;
+  uint32_t ft = 0U;
+  for (const auto& [key, val] : boxes) {
+    if (val != 0U) {
+      continue;
+    }
+    ft += 1U;
+  }
+
+  return ft > threshold;
 }
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
@@ -341,7 +350,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
 
   std::unordered_set<uint16_t> bSet;
 
-  for (int i = 0; i < overlappedBigrams.size(); i++) {
+  for (size_t i = 0; i < overlappedBigrams.size(); i++) {
     bSet.insert(overlappedBigrams[i].first);
   }
 
@@ -351,7 +360,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
     boxes.emplace(static_cast<uint16_t>(bigram_i32), false);
   }
 
-  for (int i = 0; i < text.size() - 1; i++) {
+  for (size_t i = 0; i < text.size() - 1; i++) {
     uint16_t bigram = makeBigram(text[i], text[i + 1]);
     auto it = bSet.find(bigram);
     if (it != bSet.end()) {
