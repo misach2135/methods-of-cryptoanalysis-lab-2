@@ -369,9 +369,14 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
   return ft > threshold;
 }
 
+bool structuralCriteria(const size_t original_size,
+                        const size_t compressed_size, const double threshold) {
+  return getBitsPerSymbol(original_size, compressed_size) < threshold;
+}
+
 double getBitsPerSymbol(const size_t original_size,
-                        const size_t compessed_size) {
-  return static_cast<double>(compessed_size * 8) / original_size;
+                        const size_t compressed_size) {
+  return static_cast<double>(compressed_size * 8) / original_size;
 }
 
 }  // namespace lab2

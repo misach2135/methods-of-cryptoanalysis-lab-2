@@ -98,7 +98,6 @@ Loggers setupLogger() {
   auto criteria_csv = std::make_shared<spdlog::async_logger>(
       "criteria_csv", criteria_csv_sink, spdlog::thread_pool(),
       spdlog::async_overflow_policy::block);
-
   auto structural_csv = std::make_shared<spdlog::async_logger>(
       "structural_csv", structural_csv_sink, spdlog::thread_pool(),
       spdlog::async_overflow_policy::block);
@@ -112,7 +111,8 @@ Loggers setupLogger() {
 
   bool write_header = true;
   {
-    std::ifstream existing("results.csv", std::ios::binary | std::ios::ate);
+    std::ifstream existing("criteria_stats.csv",
+                           std::ios::binary | std::ios::ate);
     if (existing.is_open() && existing.tellg() > 0) {
       write_header = false;
     }
@@ -340,7 +340,7 @@ int lab(const std::string& filepath, Loggers logs) {
   std::unordered_set<uint16_t> forbidden_bigrams;
 
   lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
-                                  statistics.text_size / 25);
+                                  statistics.text_size * 0.01);
 
   lab2::calculateForbiddenBigrams(forbidden_bigrams,
                                   statistics.overlapped_bigrams_count, 1);

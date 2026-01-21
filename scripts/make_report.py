@@ -16,6 +16,33 @@ import pandas as pd
 CRIT_RE = re.compile(r"c(\d+)")
 
 
+def fmt_num(v: object, *, decimals: int = 6) -> str:
+    """
+    Format numbers for LaTeX tables:
+    - keep floats (no scientific notation for typical lab values)
+    - drop trailing zeros
+    - show integers as '1', '0'
+    """
+    if v is None:
+        return "0"
+
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return latex_escape(str(v))
+
+    # Avoid "-0"
+    if abs(x) < 0.5 * 10 ** (-decimals):
+        x = 0.0
+
+    # If it's effectively an integer, print as int
+    if abs(x - round(x)) < 1e-12:
+        return str(int(round(x)))
+
+    s = f"{x:.{decimals}f}".rstrip("0").rstrip(".")
+    return s if s else "0"
+
+
 def table_title_from_text_id(text_id: str) -> str:
     """
     Map internal text_id to human-readable LaTeX table title.
@@ -81,6 +108,10 @@ def build_pivot(df: pd.DataFrame) -> pd.DataFrame:
     work["lgramSize"] = work["lgramSize"].astype(int)
     work["criteria_num"] = work["criteria_id"].map(parse_criteria_num)
 
+    # IMPORTANT: keep fp/fn as float
+    work["fp"] = pd.to_numeric(work["fp"], errors="raise").astype(float)
+    work["fn"] = pd.to_numeric(work["fn"], errors="raise").astype(float)
+
     agg = work.groupby(["text_id", "l", "criteria_num", "lgramSize"], as_index=False)[
         ["fp", "fn"]
     ].sum()
@@ -90,7 +121,7 @@ def build_pivot(df: pd.DataFrame) -> pd.DataFrame:
         columns="lgramSize",
         values=["fp", "fn"],
         aggfunc="sum",
-        fill_value=0,
+        fill_value=0.0,  # float
     )
 
     pv.columns = [f"{metric}_{gram}" for (metric, gram) in pv.columns.to_flat_index()]
@@ -98,15 +129,16 @@ def build_pivot(df: pd.DataFrame) -> pd.DataFrame:
 
     for col in ("fp_1", "fn_1", "fp_2", "fn_2"):
         if col not in pv.columns:
-            pv[col] = 0
+            pv[col] = 0.0
 
     pv = pv[["text_id", "l", "criteria_num", "fp_1", "fn_1", "fp_2", "fn_2"]].copy()
     pv = pv.sort_values(["text_id", "l", "criteria_num"], kind="mergesort").reset_index(
         drop=True
     )
 
+    # Ensure float dtype
     for c in ["fp_1", "fn_1", "fp_2", "fn_2"]:
-        pv[c] = pv[c].astype(int)
+        pv[c] = pd.to_numeric(pv[c], errors="coerce").fillna(0.0).astype(float)
 
     return pv
 
@@ -143,10 +175,10 @@ def render_rows_with_multirow_by_L(pv_text: pd.DataFrame) -> list[str]:
 
         for i, row in enumerate(grpL.itertuples(index=False)):
             crit = int(row.criteria_num)
-            fp1 = int(row.fp_1)
-            fn1 = int(row.fn_1)
-            fp2 = int(row.fp_2)
-            fn2 = int(row.fn_2)
+            fp1 = fmt_num(row.fp_1)
+            fn1 = fmt_num(row.fn_1)
+            fp2 = fmt_num(row.fp_2)
+            fn2 = fmt_num(row.fn_2)
 
             if i == 0:
                 lines.append(
@@ -188,7 +220,7 @@ def render_table_for_L(grp: pd.DataFrame, title: str) -> str:
     n = len(grp)
 
     lines: list[str] = []
-    lines.append(r"\begin{center}")  # НЕ float, щоб не ловити Too many floats
+    lines.append(r"\begin{center}")
     lines.append(r"\renewcommand{\arraystretch}{1.2}")
     lines.append(r"\setlength{\tabcolsep}{6pt}")
     lines.append(r"\begin{tabular}{|c|l||c|c||c|c|}")
@@ -203,21 +235,19 @@ def render_table_for_L(grp: pd.DataFrame, title: str) -> str:
     lines.append(r"\hline")
 
     if n == 0:
-        # порожня таблиця (на всякий випадок)
         lines.append(r"\end{tabular}")
         lines.append(r"\end{center}")
         lines.append("")
         return "\n".join(lines)
 
-    # multirow для L (зливаємо тільки колонку L)
     L0 = int(grp.iloc[0].l)
 
     for i, row in enumerate(grp.itertuples(index=False)):
         crit = int(row.criteria_num)
-        fp1 = int(row.fp_1)
-        fn1 = int(row.fn_1)
-        fp2 = int(row.fp_2)
-        fn2 = int(row.fn_2)
+        fp1 = fmt_num(row.fp_1)
+        fn1 = fmt_num(row.fn_1)
+        fp2 = fmt_num(row.fp_2)
+        fn2 = fmt_num(row.fn_2)
 
         if i == 0:
             lines.append(
@@ -226,8 +256,7 @@ def render_table_for_L(grp: pd.DataFrame, title: str) -> str:
         else:
             lines.append(rf" & {crit} & {fp1} & {fn1} & {fp2} & {fn2} \\")
 
-    lines.append(r"\hline")  # одна лінія після всього блоку L
-
+    lines.append(r"\hline")
     lines.append(r"\end{tabular}")
     lines.append(r"\end{center}")
     lines.append("")
