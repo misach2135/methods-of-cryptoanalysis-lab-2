@@ -16,6 +16,47 @@ import pandas as pd
 CRIT_RE = re.compile(r"c(\d+)")
 
 
+def text_id_sort_key(text_id: str) -> tuple[int, int]:
+    # Primary order: plain -> vigenere -> affine -> random -> fallback
+    # Secondary order inside vigenere: r=1,5,10; inside affine: sym then bi
+    if text_id == "plain":
+        return (0, 0)
+
+    if text_id.startswith("vig"):
+        # vig1, vig5, vig10
+        m = re.fullmatch(r"vig(\d+)", text_id)
+        r = int(m.group(1)) if m else 10**9
+        return (1, r)
+
+    if text_id.startswith("affine_"):
+        # affine_sym, affine_bi
+        sub = {"sym": 0, "bi": 1}
+        suffix = text_id.split("_", 1)[1]
+        return (2, sub.get(suffix, 10**9))
+
+    if text_id == "random":
+        return (3, 0)
+
+    # Compressed variants: keep same semantic order, but after the uncompressed ones
+    if text_id == "c_plain":
+        return (4, 0)
+
+    if text_id.startswith("c_vig"):
+        m = re.fullmatch(r"c_vig(\d+)", text_id)
+        r = int(m.group(1)) if m else 10**9
+        return (5, r)
+
+    if text_id.startswith("c_affine_"):
+        sub = {"sym": 0, "bi": 1}
+        suffix = text_id.split("_", 2)[2] if text_id.count("_") >= 2 else ""
+        return (6, sub.get(suffix, 10**9))
+
+    if text_id == "c_random":
+        return (7, 0)
+
+    return (99, 0)
+
+
 def fmt_num(v: object, *, decimals: int = 6) -> str:
     """
     Format numbers for LaTeX tables:
@@ -274,7 +315,14 @@ def to_latex_document(pv: pd.DataFrame) -> str:
     parts.append(r"\begin{document}")
     parts.append("")
 
-    for text_id, pv_text in pv.groupby("text_id", sort=True):
+    # Custom order for text_id
+    text_ids = sorted(pv["text_id"].unique(), key=text_id_sort_key)
+
+    for text_id in text_ids:
+        pv_text = pv[pv["text_id"] == text_id]
+        if pv_text.empty:
+            continue
+
         title_prefix = table_title_from_text_id(text_id)
 
         for L, grp in pv_text.groupby("l", sort=True):

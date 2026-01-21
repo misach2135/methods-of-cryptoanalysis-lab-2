@@ -4,7 +4,7 @@
 
 std::vector<uint8_t> lab2::applyAphineLetterSubstitution(
     const std::vector<uint8_t>& bytes, uint8_t a, uint8_t b) {
-  constexpr uint16_t M = ALPHABET_SIZE + 1;
+  constexpr uint16_t M = ALPHABET_SIZE;
   std::vector<uint8_t> result;
   result.reserve(bytes.size());
 
@@ -19,7 +19,7 @@ std::vector<uint8_t> lab2::applyAphineLetterSubstitution(
 
 std::vector<uint8_t> lab2::applyAphineBigramSubstitution(
     const std::vector<uint8_t>& bytes, uint16_t a, uint16_t b) {
-  constexpr uint16_t M = (ALPHABET_SIZE + 1);
+  constexpr uint16_t M = ALPHABET_SIZE;
   constexpr uint16_t M2 = M * M;
 
   std::vector<uint8_t> result(bytes.begin(), bytes.end());

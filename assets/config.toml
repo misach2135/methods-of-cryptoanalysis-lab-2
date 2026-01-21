@@ -10,17 +10,17 @@
 # c_structural_threshold = 6
 
 [criteria_thresholds]
-c11l1_threshold = 0.10
-c11l2_threshold = 0.10
+c11l1_threshold = 0.15
+c11l2_threshold = 0.15
 
 c30l1_threshold = 0.35
-c30l2_threshold = 0.60
+c30l2_threshold = 0.80
 
-c51l1_j = 10
-c51l1_threshold = 5
+c51l1_j = 15
+c51l1_threshold = 6
 
 c51l2_j = 50
-c51l2_threshold = 23
+c51l2_threshold = 15
 
 c_structural_threshold = 6
 
