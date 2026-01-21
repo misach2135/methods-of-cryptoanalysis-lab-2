@@ -1,14 +1,29 @@
+# [criteria_thresholds]
+# c11l1_threshold = 0.5
+# c30l1_threshold = 0.5
+# c51l1_j = 10
+# c51l1_threshold = 100
+# c11l2_threshold = 0.5
+# c30l2_threshold = 0.5
+# c51l2_j = 50
+# c51l2_threshold = 100
+# c_structural_threshold = 6
+
 [criteria_thresholds]
-c11l1_threshold = 0.5
-c30l1_threshold = 0.5
+c11l1_threshold = 0.10
+c11l2_threshold = 0.10
+
+c30l1_threshold = 0.35
+c30l2_threshold = 0.60
+
 c51l1_j = 10
-c51l1_threshold = 100
-c11l2_threshold = 0.5
-c30l2_threshold = 0.5
+c51l1_threshold = 5
+
 c51l2_j = 50
-c51l2_threshold = 100
+c51l2_threshold = 23
+
 c_structural_threshold = 6
 
 [forbidden_lgrams]
-forbidden_bigrams = 0.00001
+forbidden_bigrams = 0.000005
 forbidden_symbols = 0.01

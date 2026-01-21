@@ -56,12 +56,12 @@ double calculateIndexOfCoincidenceL2(
 void calculateForbiddenBigrams(
     std::unordered_set<uint16_t>& forbidden_bigrams,
     const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
-    const double threshold);
+    const double threshold, const size_t text_size);
 
 void calculateForbiddenSymbols(
     std::unordered_set<uint8_t>& forbidden_symbols,
     const std::unordered_map<uint8_t, uint32_t>& symbol_counts,
-    const double threshold);
+    const double threshold, const size_t text_size);
 
 }  // namespace lab2
 

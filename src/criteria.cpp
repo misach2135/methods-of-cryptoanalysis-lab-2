@@ -121,8 +121,8 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
     ++counts_local[symbol];
   }
 
-  uint32_t count_f = 0U;
-  uint32_t count_k = 0U;
+  double count_f = 0;
+  double count_k = 0;
 
   for (auto forbidden_symbol : forbidden_symbols) {
     auto count_local_iter = counts_local.find(forbidden_symbol);
@@ -300,21 +300,23 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
 
   calculateOverlappedBigramsCount(text, bigrams_count_local);
 
-  uint32_t count_f = 0;
-  uint32_t count_k = 0;
+  double count_f = 0;
+  double count_k = 0;
 
   for (auto forbidden_bigram : forbidden_symbols) {
     auto count_local_iter = bigrams_count_local.find(forbidden_bigram);
     auto count_local = count_local_iter == bigrams_count_local.end()
                            ? 0
-                           : count_local_iter->second;
+                           : static_cast<double>(count_local_iter->second) /
+                                 static_cast<double>(text.size() - 1);
 
     auto count_global_iter =
         statistics.overlapped_bigrams_count.find(forbidden_bigram);
     auto count_global =
         count_global_iter == statistics.overlapped_bigrams_count.end()
             ? 0
-            : count_global_iter->second;
+            : static_cast<double>(count_global_iter->second) /
+                  static_cast<double>(statistics.text_size - 1);
 
     count_f += count_local;
     count_k += count_global;

@@ -144,11 +144,16 @@ double lab2::calculateIndexOfCoincidenceL2(
 void lab2::calculateForbiddenBigrams(
     std::unordered_set<uint16_t>& forbidden_bigrams,
     const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
-    const double threshold) {
+    const double threshold, const size_t text_size) {
   for (uint16_t bigram = 0; bigram < ALPHABET_SIZE * ALPHABET_SIZE; bigram++) {
     auto it = overlapped_bigrams_count.find(bigram);
-    uint32_t count = (it == overlapped_bigrams_count.end()) ? 0 : it->second;
-    if (count < threshold) {
+    double count = (it == overlapped_bigrams_count.end())
+                       ? 0
+                       : static_cast<double>(it->second);
+
+    count /= static_cast<double>(text_size);
+
+    if (count <= threshold) {
       forbidden_bigrams.insert(bigram);
     }
   }
@@ -157,11 +162,14 @@ void lab2::calculateForbiddenBigrams(
 void lab2::calculateForbiddenSymbols(
     std::unordered_set<uint8_t>& forbidden_symbols,
     const std::unordered_map<uint8_t, uint32_t>& symbol_counts,
-    const double threshold) {
+    const double threshold, const size_t text_size) {
   for (uint8_t c = 0; c < ALPHABET_SIZE; c++) {
     auto it = symbol_counts.find(c);
-    uint32_t count = (it == symbol_counts.end()) ? 0 : it->second;
-    if (count < threshold) {
+    double count =
+        (it == symbol_counts.end()) ? 0 : static_cast<double>(it->second);
+
+    count /= text_size - 1;
+    if (count <= threshold) {
       forbidden_symbols.insert(c);
     }
   }

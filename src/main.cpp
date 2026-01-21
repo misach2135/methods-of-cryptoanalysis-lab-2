@@ -378,13 +378,13 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
   std::unordered_set<uint8_t> forbidden_symbols;
   std::unordered_set<uint16_t> forbidden_bigrams;
 
-  lab2::calculateForbiddenSymbols(
-      forbidden_symbols, statistics.counts,
-      statistics.text_size * config.forbidden_symbols);
+  lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
+                                  config.forbidden_symbols,
+                                  statistics.text_size);
 
   lab2::calculateForbiddenBigrams(
       forbidden_bigrams, statistics.overlapped_bigrams_count,
-      (statistics.text_size - 1) * config.forbidden_bigrams);
+      config.forbidden_bigrams, statistics.text_size - 1);
 
   logs.cli->info("Forbidden Symbols: {}", forbidden_symbols);
   logs.cli->info("Forbidden Bigrams: {}", forbidden_bigrams);
