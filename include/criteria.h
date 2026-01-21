@@ -49,7 +49,7 @@ bool bigramCriteria13(const std::vector<uint8_t>& text,
 bool bigramCriteria30(const std::vector<uint8_t>& text,
                       const Statistics& statistics, const double threshold);
 bool bigramCriteria51(const std::vector<uint8_t>& text,
-                      const Statistics& statistics, const double threshold,
+                      const Statistics& statistics, const size_t threshold,
                       const size_t j);
 
 bool structuralCriteria(const std::vector<uint8_t>& text);
