@@ -81,13 +81,16 @@ bool symbolicCriteria12(const std::vector<uint8_t>& text,
 
   for (auto forbidden_symbol : forbidden_symbols) {
     auto count_local_iter = counts_local.find(forbidden_symbol);
-    auto count_local =
-        count_local_iter == counts_local.end() ? 0U : count_local_iter->second;
+    auto count_local = count_local_iter == counts_local.end()
+                           ? 0.0
+                           : (static_cast<double>(count_local_iter->second) /
+                              static_cast<double>(text.size()));
 
     auto count_global_iter = statistics.counts.find(forbidden_symbol);
     auto count_global = count_global_iter == statistics.counts.end()
-                            ? 0U
-                            : count_global_iter->second;
+                            ? 0.0
+                            : (static_cast<double>(count_global_iter->second) /
+                               static_cast<double>(statistics.text_size));
 
     if (count_local > count_global) {
       return true;
@@ -123,13 +126,16 @@ bool symbolicCriteria13(const std::vector<uint8_t>& text,
 
   for (auto forbidden_symbol : forbidden_symbols) {
     auto count_local_iter = counts_local.find(forbidden_symbol);
-    auto count_local =
-        count_local_iter == counts_local.end() ? 0U : count_local_iter->second;
+    auto count_local = count_local_iter == counts_local.end()
+                           ? 0.0
+                           : (static_cast<double>(count_local_iter->second) /
+                              static_cast<double>(text.size()));
 
     auto count_global_iter = statistics.counts.find(forbidden_symbol);
     auto count_global = count_global_iter == statistics.counts.end()
-                            ? 0U
-                            : count_global_iter->second;
+                            ? 0.0
+                            : (static_cast<double>(count_global_iter->second) /
+                               static_cast<double>(statistics.text_size));
 
     count_f += count_local;
     count_k += count_global;
@@ -207,7 +213,7 @@ bool symbolicCriteria51(const std::vector<uint8_t>& text,
     ft += 1U;
   }
 
-  return ft > threshold;
+  return ft >= threshold;
 }
 
 bool bigramCriteria10(const std::vector<uint8_t>& text,
@@ -264,14 +270,16 @@ bool bigramCriteria12(const std::vector<uint8_t>& text,
     auto count_local_iter = bigrams_count_local.find(forbidden_bigram);
     auto count_local = count_local_iter == bigrams_count_local.end()
                            ? 0
-                           : count_local_iter->second;
+                           : (static_cast<double>(count_local_iter->second) /
+                              static_cast<double>(text.size() - 1));
 
     auto count_global_iter =
         statistics.overlapped_bigrams_count.find(forbidden_bigram);
     auto count_global =
         count_global_iter == statistics.overlapped_bigrams_count.end()
             ? 0
-            : count_global_iter->second;
+            : (static_cast<double>(count_global_iter->second) /
+               static_cast<double>(statistics.text_size - 1));
 
     if (count_local > count_global) {
       return true;
@@ -341,10 +349,16 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
       statistics.overlapped_bigrams_count.begin(),
       statistics.overlapped_bigrams_count.end());
 
-  std::nth_element(overlappedBigrams.begin(), overlappedBigrams.begin() + j,
-                   overlappedBigrams.end(), [](const auto& a, const auto& b) {
-                     return a.second > b.second;
-                   });
+  const std::size_t top_count =
+      std::min<std::size_t>(j, overlappedBigrams.size());
+  if (top_count == 0U) {
+    return true;
+  }
+
+  std::nth_element(
+      overlappedBigrams.begin(), overlappedBigrams.begin() + top_count,
+      overlappedBigrams.end(),
+      [](const auto& a, const auto& b) { return a.second > b.second; });
 
   overlappedBigrams.resize(j);
 
@@ -357,7 +371,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
   std::unordered_map<uint16_t, uint32_t> boxes;
 
   for (const auto& [bigram_i32, _cnt] : overlappedBigrams) {
-    boxes.emplace(static_cast<uint16_t>(bigram_i32), false);
+    boxes.emplace(static_cast<uint16_t>(bigram_i32), 0U);
   }
 
   for (size_t i = 0; i < text.size() - 1; i++) {
@@ -380,7 +394,7 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
 
 bool structuralCriteria(const size_t original_size,
                         const size_t compressed_size, const double threshold) {
-  return getBitsPerSymbol(original_size, compressed_size) < threshold;
+  return getBitsPerSymbol(original_size, compressed_size) > threshold;
 }
 
 double getBitsPerSymbol(const size_t original_size,

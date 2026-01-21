@@ -144,7 +144,7 @@ double lab2::calculateIndexOfCoincidenceL2(
 void lab2::calculateForbiddenBigrams(
     std::unordered_set<uint16_t>& forbidden_bigrams,
     const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
-    const uint32_t threshold) {
+    const double threshold) {
   for (uint16_t bigram = 0; bigram < ALPHABET_SIZE * ALPHABET_SIZE; bigram++) {
     auto it = overlapped_bigrams_count.find(bigram);
     uint32_t count = (it == overlapped_bigrams_count.end()) ? 0 : it->second;
@@ -157,7 +157,7 @@ void lab2::calculateForbiddenBigrams(
 void lab2::calculateForbiddenSymbols(
     std::unordered_set<uint8_t>& forbidden_symbols,
     const std::unordered_map<uint8_t, uint32_t>& symbol_counts,
-    const uint32_t threshold) {
+    const double threshold) {
   for (uint8_t c = 0; c < ALPHABET_SIZE; c++) {
     auto it = symbol_counts.find(c);
     uint32_t count = (it == symbol_counts.end()) ? 0 : it->second;

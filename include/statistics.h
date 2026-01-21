@@ -56,12 +56,12 @@ double calculateIndexOfCoincidenceL2(
 void calculateForbiddenBigrams(
     std::unordered_set<uint16_t>& forbidden_bigrams,
     const std::unordered_map<uint16_t, uint32_t>& overlapped_bigrams_count,
-    const uint32_t threshold);
+    const double threshold);
 
 void calculateForbiddenSymbols(
     std::unordered_set<uint8_t>& forbidden_symbols,
     const std::unordered_map<uint8_t, uint32_t>& symbol_counts,
-    const uint32_t threshold);
+    const double threshold);
 
 }  // namespace lab2
 
@@ -84,6 +84,33 @@ struct fmt::formatter<lab2::Statistics> : fmt::formatter<std::string> {
                           statistics.entropy_1, statistics.entropy_2,
                           statistics.index_of_coincidence_1,
                           statistics.index_of_coincidence_2);
+  }
+};
+
+template <typename T>
+struct fmt::formatter<std::unordered_set<T>> {
+  constexpr auto parse(fmt::format_parse_context& ctx)
+      -> decltype(ctx.begin()) {
+    return ctx.begin();
+  }
+
+  auto format(const std::unordered_set<T>& set, fmt::format_context& ctx) const
+      -> decltype(ctx.out()) {
+    auto out = ctx.out();
+    out = fmt::format_to(out, "{{");
+
+    bool first = true;
+    for (const auto& v : set) {
+      if (!first) {
+        out = fmt::format_to(out, ", ");
+      }
+      first = false;
+
+      out = fmt::format_to(out, "{}", v);
+    }
+
+    out = fmt::format_to(out, "}}");
+    return out;
   }
 };
 

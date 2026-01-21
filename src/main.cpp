@@ -378,34 +378,18 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
   std::unordered_set<uint8_t> forbidden_symbols;
   std::unordered_set<uint16_t> forbidden_bigrams;
 
-  lab2::calculateForbiddenSymbols(forbidden_symbols, statistics.counts,
-                                  statistics.text_size * 0.01);
+  lab2::calculateForbiddenSymbols(
+      forbidden_symbols, statistics.counts,
+      statistics.text_size * config.forbidden_symbols);
 
-  lab2::calculateForbiddenBigrams(forbidden_bigrams,
-                                  statistics.overlapped_bigrams_count, 1);
+  lab2::calculateForbiddenBigrams(
+      forbidden_bigrams, statistics.overlapped_bigrams_count,
+      (statistics.text_size - 1) * config.forbidden_bigrams);
+
+  logs.cli->info("Forbidden Symbols: {}", forbidden_symbols);
+  logs.cli->info("Forbidden Bigrams: {}", forbidden_bigrams);
 
   logs.cli->info("Calculating criterias...");
-
-  const std::size_t symbol_kp =
-      forbidden_symbols.empty()
-          ? 1U
-          : (forbidden_symbols.size() < 3U ? forbidden_symbols.size() : 3U);
-  const std::size_t bigram_kp =
-      forbidden_bigrams.empty()
-          ? 1U
-          : (forbidden_bigrams.size() < 3U ? forbidden_bigrams.size() : 3U);
-  constexpr double kSymbolEntropyThreshold = 0.1;
-  constexpr double kBigramEntropyThreshold = 0.1;
-  constexpr std::size_t kSymbol51Threshold = 3U;
-  constexpr std::size_t kSymbol51J = 0U;
-
-  std::size_t bigram_j = 0U;
-  const std::size_t bigram_count = statistics.overlapped_bigrams_count.size();
-  if (bigram_count > 1U) {
-    bigram_j = (bigram_count < 6U) ? (bigram_count - 1U) : 5U;
-  }
-  const std::size_t bigram51_threshold =
-      (bigram_j == 0U) ? 0U : (bigram_j < 3U ? bigram_j : 3U);
 
   std::vector<std::thread> threadPool;
 
@@ -441,8 +425,8 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
             log_results(i, 1U, "c10sy", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applySymbolCriteria11(texts[i], forbidden_symbols, symbol_kp);
+            auto res = applySymbolCriteria11(texts[i], forbidden_symbols,
+                                             config.c11l1_threshold * L_ARR[i]);
             log_results(i, 1U, "c11sy", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
@@ -457,12 +441,12 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
           });
           threadPool.emplace_back([&, i, text_id]() {
             auto res = applySymbolCriteria30(texts[i], statistics,
-                                             kSymbolEntropyThreshold);
+                                             config.c30l1_threshold);
             log_results(i, 1U, "c30sy", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
-            auto res = applySymbolCriteria51(texts[i], statistics,
-                                             kSymbol51Threshold, kSymbol51J);
+            auto res = applySymbolCriteria51(
+                texts[i], statistics, config.c51l1_threshold, config.c51l1_j);
             log_results(i, 1U, "c51sy", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
@@ -471,7 +455,8 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
           });
           threadPool.emplace_back([&, i, text_id]() {
             auto res =
-                applyBigramCriteria11(texts[i], forbidden_bigrams, bigram_kp);
+                applyBigramCriteria11(texts[i], forbidden_bigrams,
+                                      config.c11l2_threshold * (L_ARR[i] - 1));
             log_results(i, 2U, "c11bi", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
@@ -486,12 +471,12 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
           });
           threadPool.emplace_back([&, i, text_id]() {
             auto res = applyBigramCriteria30(texts[i], statistics,
-                                             kBigramEntropyThreshold);
+                                             config.c30l2_threshold);
             log_results(i, 2U, "c30bi", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
-            auto res = applyBigramCriteria51(texts[i], statistics,
-                                             bigram51_threshold, bigram_j);
+            auto res = applyBigramCriteria51(
+                texts[i], statistics, config.c51l2_threshold, config.c51l2_j);
             log_results(i, 2U, "c51bi", text_id, res);
           });
           threadPool.emplace_back([&, i, text_id]() {
