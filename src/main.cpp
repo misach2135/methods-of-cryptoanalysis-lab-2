@@ -139,6 +139,8 @@ int lab(const std::string& filepath, Loggers logs) {
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
       affine_bigram_texts;
 
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)> random_texts;
+
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
       compressed_plain_texts;
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
@@ -151,6 +153,8 @@ int lab(const std::string& filepath, Loggers logs) {
       compressed_affine_symbol_texts;
   std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
       compressed_affine_bigram_texts;
+  std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>
+      compressed_random_texts;
 
   auto cursor = bytes_vec.begin();
 
@@ -213,12 +217,14 @@ int lab(const std::string& filepath, Loggers logs) {
       std::vector<uint8_t> vigenere_text_10;
       std::vector<uint8_t> affine_symbol_text;
       std::vector<uint8_t> affine_bigram_text;
+      std::vector<uint8_t> random_text;
       std::vector<uint8_t> compressed_plain_text;
       std::vector<uint8_t> compressed_vigenere_text_1;
       std::vector<uint8_t> compressed_vigenere_text_5;
       std::vector<uint8_t> compressed_vigenere_text_10;
       std::vector<uint8_t> compressed_affine_symbol_text;
       std::vector<uint8_t> compressed_affine_bigram_text;
+      std::vector<uint8_t> compressed_random_text;
 
       auto t1 = std::thread([&vigenere_text_1, &plain_text, &vigenere_key_1,
                              &compressed_vigenere_text_1, &vigenere_texts_1,
@@ -269,6 +275,14 @@ int lab(const std::string& filepath, Loggers logs) {
             compressed_affine_bigram_texts[i].push_back(
                 compressed_affine_bigram_text);
           });
+
+      auto t6 = std::thread([&random_text, &compressed_random_text,
+                             &random_texts, &compressed_random_texts, l, i]() {
+        random_text = lab2::generateRandomText(static_cast<size_t>(l));
+        compressed_random_text = compressText(random_text);
+        random_texts[i].push_back(random_text);
+        compressed_random_texts[i].push_back(compressed_random_text);
+      });
 
       compressed_plain_text = compressText(plain_text);
       plain_texts[i].push_back(plain_text);
