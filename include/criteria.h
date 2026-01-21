@@ -52,7 +52,10 @@ bool bigramCriteria51(const std::vector<uint8_t>& text,
                       const Statistics& statistics, const size_t threshold,
                       const size_t j);
 
-bool structuralCriteria(const std::vector<uint8_t>& text);
+// Structural criterias
+
+inline double get_bits_per_symbol(const size_t original_size,
+                                  const size_t compessed_size);
 
 }  // namespace lab2
 
