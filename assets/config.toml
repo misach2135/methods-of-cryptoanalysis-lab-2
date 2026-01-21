@@ -1,29 +1,20 @@
-# [criteria_thresholds]
-# c11l1_threshold = 0.5
-# c30l1_threshold = 0.5
-# c51l1_j = 10
-# c51l1_threshold = 100
-# c11l2_threshold = 0.5
-# c30l2_threshold = 0.5
-# c51l2_j = 50
-# c51l2_threshold = 100
-# c_structural_threshold = 6
-
 [criteria_thresholds]
-c11l1_threshold = 0.15
-c11l2_threshold = 0.15
+# Scalars are broadcasted, arrays follow L_ARR order: [10, 100, 1000, 10000].
+# c11 thresholds are ratios; actual count = ratio * L (or L-1 for bigrams).
+c11l1_threshold = [0.30, 0.18, 0.12, 0.08]
+c11l2_threshold = [0.30, 0.18, 0.12, 0.08]
 
-c30l1_threshold = 0.35
-c30l2_threshold = 0.80
+c30l1_threshold = [0.5, 0.35, 0.15, 0.07]  # L=10 disable-ish
+c30l2_threshold = [3.00, 0.55, 0.22, 0.10]
 
-c51l1_j = 15
-c51l1_threshold = 6
+c51l1_j = [3, 10, 20, 30]
+c51l1_threshold = [6, 4, 8, 12]
 
-c51l2_j = 50
-c51l2_threshold = 15
+c51l2_j = [5, 20, 200, 500]
+c51l2_threshold = [10, 25, 30, 60]
 
-c_structural_threshold = 6
+c_structural_threshold = [10.0, 6.97, 4.90, 4.42]
 
 [forbidden_lgrams]
 forbidden_bigrams = 0.000005
-forbidden_symbols = 0.01
+forbidden_symbols = 0.007

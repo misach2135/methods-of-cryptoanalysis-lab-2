@@ -28,19 +28,20 @@
 
 constexpr uint32_t L_ARR[] = {10, 100, 1000, 10000};
 constexpr uint32_t N_ARR[] = {10000, 10000, 10000, 1000};
+constexpr std::size_t kLCount = std::size(L_ARR);  // Per-L config sizing.
 
 struct Config {
-  double c11l1_threshold;
-  double c30l1_threshold;
-  double c51l1_j;
-  double c51l1_threshold;
+  std::array<double, kLCount> c11l1_threshold;  // Ratios, scaled by L.
+  std::array<double, kLCount> c30l1_threshold;  // Entropy delta thresholds.
+  std::array<std::size_t, kLCount> c51l1_j;     // Top-j parameter per L.
+  std::array<std::size_t, kLCount> c51l1_threshold;  // Count threshold per L.
 
-  double c11l2_threshold;
-  double c30l2_threshold;
-  double c51l2_j;
-  double c51l2_threshold;
+  std::array<double, kLCount> c11l2_threshold;  // Ratios, scaled by L-1.
+  std::array<double, kLCount> c30l2_threshold;  // Entropy delta thresholds.
+  std::array<std::size_t, kLCount> c51l2_j;     // Top-j parameter per L.
+  std::array<std::size_t, kLCount> c51l2_threshold;  // Count threshold per L.
 
-  double c_structural_threshold;
+  std::array<double, kLCount> c_structural_threshold;  // Per-L structural thresholds.
 
   double forbidden_symbols;
   double forbidden_bigrams;
@@ -61,16 +62,19 @@ struct SerializedResult {
   uint32_t h1;
   double fp;
   double fn;
+  double threshold;  // Threshold used for the current L.
+  std::size_t j;     // Additional parameter for c51 criteria.
 };
 
 template <>
 struct fmt::formatter<SerializedResult> : fmt::formatter<std::string> {
   auto format(SerializedResult results, fmt::format_context& ctx) const
       -> decltype(ctx.out()) {
-    return fmt::format_to(ctx.out(), "{},{},{},{},{},{},{},{}", results.l,
-                          results.lgramSize, results.criteria_identifier,
-                          results.text_identifier, results.h0, results.h1,
-                          results.fp, results.fn);
+    return fmt::format_to(
+        ctx.out(), "{},{},{},{},{},{},{},{},{},{}", results.l,
+        results.lgramSize, results.criteria_identifier, results.text_identifier,
+        results.h0, results.h1, results.fp, results.fn, results.threshold,
+        results.j);
   }
 };
 
@@ -139,26 +143,99 @@ Loggers setupLogger() {
     }
   }
   if (write_header) {
-    criteria_csv->info("l,lgramSize,criteria_id,text_id,h0,h1,fp,fn");
-    structural_csv->info("text_id,l,abg_bits_per_byte");
+    // Add threshold fields to CSV headers for per-L configs.
+    criteria_csv->info(
+        "l,lgramSize,criteria_id,text_id,h0,h1,fp,fn,threshold,j");
+    structural_csv->info("text_id,l,abg_bits_per_byte,threshold");
   }
 
   return {cli, criteria_csv, structural_csv};
 }
 
+// Load per-L values from a scalar or an array (arrays follow L_ARR order).
+std::array<double, kLCount> loadPerLDouble(
+    const toml::node_view<toml::node>& node, double default_value) {
+  std::array<double, kLCount> values{};
+  values.fill(default_value);
+
+  if (!node) {
+    return values;
+  }
+
+  if (node.is_array()) {
+    auto* arr = node.as_array();
+    const auto count = arr->size() < kLCount ? arr->size() : kLCount;
+    for (std::size_t i = 0; i < count; ++i) {
+      auto* elem = arr->get(i);
+      if (!elem) {
+        continue;
+      }
+      if (auto val = elem->value<double>(); val) {
+        values[i] = *val;
+        continue;
+      }
+      if (auto val_int = elem->value<int64_t>(); val_int) {
+        values[i] = static_cast<double>(*val_int);
+      }
+    }
+    return values;
+  }
+
+  if (auto val = node.value<double>(); val) {
+    values.fill(*val);
+  } else if (auto val_int = node.value<int64_t>(); val_int) {
+    values.fill(static_cast<double>(*val_int));
+  }
+  return values;
+}
+
+// Load per-L integer values from a scalar or an array.
+std::array<std::size_t, kLCount> loadPerLSize(
+    const toml::node_view<toml::node>& node, std::size_t default_value) {
+  std::array<std::size_t, kLCount> values{};
+  values.fill(default_value);
+
+  if (!node) {
+    return values;
+  }
+
+  if (node.is_array()) {
+    auto* arr = node.as_array();
+    const auto count = arr->size() < kLCount ? arr->size() : kLCount;
+    for (std::size_t i = 0; i < count; ++i) {
+      auto* elem = arr->get(i);
+      if (!elem) {
+        continue;
+      }
+      if (auto val = elem->value<int64_t>(); val && *val >= 0) {
+        values[i] = static_cast<std::size_t>(*val);
+      }
+    }
+    return values;
+  }
+
+  if (auto val = node.value<int64_t>(); val && *val >= 0) {
+    values.fill(static_cast<std::size_t>(*val));
+  }
+  return values;
+}
+
 Config loadConfig(const std::string& filename) {
   auto config = toml::parse_file(filename);
 
+  // Allow scalar or per-L arrays for all thresholds.
+  const auto thresholds = config["criteria_thresholds"];
+
   return Config{
-      config["criteria_thresholds"]["c11l1_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c30l1_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c51l1_j"].value_or(0.0),
-      config["criteria_thresholds"]["c51l1_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c11l2_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c30l2_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c51l2_j"].value_or(0.0),
-      config["criteria_thresholds"]["c51l2_threshold"].value_or(0.0),
-      config["criteria_thresholds"]["c_structural_threshold"].value_or(0.0),
+      loadPerLDouble(thresholds["c11l1_threshold"], 0.0),
+      loadPerLDouble(thresholds["c30l1_threshold"], 0.0),
+      loadPerLSize(thresholds["c51l1_j"], 0U),
+      loadPerLSize(thresholds["c51l1_threshold"], 0U),
+      loadPerLDouble(thresholds["c11l2_threshold"], 0.0),
+      loadPerLDouble(thresholds["c30l2_threshold"], 0.0),
+      loadPerLSize(thresholds["c51l2_j"], 0U),
+      loadPerLSize(thresholds["c51l2_threshold"], 0U),
+      loadPerLDouble(thresholds["c_structural_threshold"], 0.0),
       config["forbidden_lgrams"]["forbidden_symbols"].value_or(0.0),
       config["forbidden_lgrams"]["forbidden_bigrams"].value_or(0.0),
   };
@@ -167,7 +244,8 @@ Config loadConfig(const std::string& filename) {
 int lab(const std::string& filepath, Config config, Loggers logs) {
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<uint8_t> uniform_distribution(0, ALPHABET_SIZE);
+  std::uniform_int_distribution<uint8_t> uniform_distribution(
+      0, ALPHABET_SIZE - 1U);
 
   std::ifstream file(filepath);
 
@@ -391,128 +469,214 @@ int lab(const std::string& filepath, Config config, Loggers logs) {
 
   logs.cli->info("Calculating criterias...");
 
-  std::vector<std::thread> threadPool;
+  constexpr std::size_t kCriteriaCount = 12U;
 
-  constexpr std::size_t criteria_count = 12U;
-  constexpr std::size_t text_count = 14U;
-  threadPool.reserve(plain_texts.size() * criteria_count * text_count);
-
-  auto log_results = [&](std::size_t idx, uint32_t lgram_size,
-                         const char* criteria_id, const char* text_id,
-                         const CriteriaResult& res) {
-    auto serialized_results = SerializedResult{
-        L_ARR[idx],
-        lgram_size,
-        criteria_id,
-        text_id,
-        res.h0_count,
-        res.h1_count,
-        res.h0_count / static_cast<double>(N_ARR[idx]),
-        res.h1_count / static_cast<double>(N_ARR[idx]),
-    };
-    logs.crtireia_stats_csv->info("{}", serialized_results);
+  struct CriteriaMeta {
+    const char* id;
+    uint32_t lgram_size;
   };
 
-  auto enqueue_criteria_for_texts =
-      [&](const std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>&
-              texts,
-          const std::array<std::vector<std::vector<uint8_t>>, std::size(L_ARR)>&
-              compressed_texts,
-          const char* text_id) {
-        for (std::size_t i = 0; i < texts.size(); i++) {
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applySymbolCriteria10(texts[i], forbidden_symbols);
-            log_results(i, 1U, "c10sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applySymbolCriteria11(texts[i], forbidden_symbols,
-                                             config.c11l1_threshold * L_ARR[i]);
-            log_results(i, 1U, "c11sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applySymbolCriteria12(texts[i], forbidden_symbols, statistics);
-            log_results(i, 1U, "c12sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applySymbolCriteria13(texts[i], forbidden_symbols, statistics);
-            log_results(i, 1U, "c13sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applySymbolCriteria30(texts[i], statistics,
-                                             config.c30l1_threshold);
-            log_results(i, 1U, "c30sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applySymbolCriteria51(
-                texts[i], statistics, config.c51l1_threshold, config.c51l1_j);
-            log_results(i, 1U, "c51sy", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applyBigramCriteria10(texts[i], forbidden_bigrams);
-            log_results(i, 2U, "c10bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applyBigramCriteria11(texts[i], forbidden_bigrams,
-                                      config.c11l2_threshold * (L_ARR[i] - 1));
-            log_results(i, 2U, "c11bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applyBigramsCriteria12(texts[i], forbidden_bigrams, statistics);
-            log_results(i, 2U, "c12bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res =
-                applyBigramCriteria13(texts[i], forbidden_bigrams, statistics);
-            log_results(i, 2U, "c13bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applyBigramCriteria30(texts[i], statistics,
-                                             config.c30l2_threshold);
-            log_results(i, 2U, "c30bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            auto res = applyBigramCriteria51(
-                texts[i], statistics, config.c51l2_threshold, config.c51l2_j);
-            log_results(i, 2U, "c51bi", text_id, res);
-          });
-          threadPool.emplace_back([&, i, text_id]() {
-            double avg_bits_per_byte = 0.0;
-            for (size_t j = 0; j < compressed_texts[i].size(); j++) {
-              avg_bits_per_byte += lab2::getBitsPerSymbol(
-                  texts[i][j].size(), compressed_texts[i][j].size());
-            }
-            avg_bits_per_byte /= compressed_texts[i].size();
+  constexpr std::array<CriteriaMeta, kCriteriaCount> kCriteriaMeta = {{
+      {"c10sy", 1U},
+      {"c11sy", 1U},
+      {"c12sy", 1U},
+      {"c13sy", 1U},
+      {"c30sy", 1U},
+      {"c51sy", 1U},
+      {"c10bi", 2U},
+      {"c11bi", 2U},
+      {"c12bi", 2U},
+      {"c13bi", 2U},
+      {"c30bi", 2U},
+      {"c51bi", 2U},
+  }};
 
-            logs.cli->info(
-                "Avg bits per byte for text of type {} of size {} : {}",
-                text_id, L_ARR[i], avg_bits_per_byte);
-            logs.criteria_structural_csv->info("{},{},{}", text_id, L_ARR[i],
-                                               avg_bits_per_byte);
-          });
-        }
-      };
-  enqueue_criteria_for_texts(plain_texts, compressed_plain_texts, "plain");
-  enqueue_criteria_for_texts(vigenere_texts_1, compressed_vigenere_texts_1,
-                             "vig1");
-  enqueue_criteria_for_texts(vigenere_texts_5, compressed_vigenere_texts_5,
-                             "vig5");
-  enqueue_criteria_for_texts(vigenere_texts_10, compressed_vigenere_texts_10,
-                             "vig10");
-  enqueue_criteria_for_texts(affine_symbol_texts,
-                             compressed_affine_symbol_texts, "affine_sym");
-  enqueue_criteria_for_texts(affine_bigram_texts,
-                             compressed_affine_bigram_texts, "affine_bi");
-  enqueue_criteria_for_texts(random_texts, compressed_random_texts, "random");
+  // Convert ratio thresholds to absolute counts per L for c11 criteria.
+  std::array<std::size_t, kLCount> c11l1_threshold_by_l{};
+  std::array<std::size_t, kLCount> c11l2_threshold_by_l{};
+  for (std::size_t i = 0; i < kLCount; ++i) {
+    c11l1_threshold_by_l[i] =
+        static_cast<std::size_t>(config.c11l1_threshold[i] * L_ARR[i]);
+    c11l2_threshold_by_l[i] = static_cast<std::size_t>(
+        config.c11l2_threshold[i] * (L_ARR[i] - 1U));
+  }
+
+  using CriteriaMatrix =
+      std::array<std::array<CriteriaResult, kCriteriaCount>, kLCount>;
+
+  CriteriaMatrix plain_results{};
+  CriteriaMatrix vig1_results{};
+  CriteriaMatrix vig5_results{};
+  CriteriaMatrix vig10_results{};
+  CriteriaMatrix affine_sym_results{};
+  CriteriaMatrix affine_bi_results{};
+  CriteriaMatrix random_results{};
+
+  std::vector<std::thread> threadPool;
+
+  constexpr std::size_t text_type_count = 7U;
+  threadPool.reserve(kLCount * text_type_count);
+
+  auto enqueue_criteria_for_texts = [&](const auto& texts,
+                                        CriteriaMatrix& results) {
+    auto* texts_ptr = &texts;
+    auto* results_ptr = &results;
+    for (std::size_t i = 0; i < texts.size(); i++) {
+      threadPool.emplace_back([&, i, texts_ptr, results_ptr]() {
+        (*results_ptr)[i][0] =
+            applySymbolCriteria10((*texts_ptr)[i], forbidden_symbols);
+        (*results_ptr)[i][1] =
+            applySymbolCriteria11((*texts_ptr)[i], forbidden_symbols,
+                                  c11l1_threshold_by_l[i]);
+        (*results_ptr)[i][2] = applySymbolCriteria12(
+            (*texts_ptr)[i], forbidden_symbols, statistics);
+        (*results_ptr)[i][3] = applySymbolCriteria13(
+            (*texts_ptr)[i], forbidden_symbols, statistics);
+        (*results_ptr)[i][4] = applySymbolCriteria30(
+            (*texts_ptr)[i], statistics, config.c30l1_threshold[i]);
+        (*results_ptr)[i][5] =
+            applySymbolCriteria51((*texts_ptr)[i], statistics,
+                                  config.c51l1_threshold[i],
+                                  config.c51l1_j[i]);
+        (*results_ptr)[i][6] =
+            applyBigramCriteria10((*texts_ptr)[i], forbidden_bigrams);
+        (*results_ptr)[i][7] =
+            applyBigramCriteria11((*texts_ptr)[i], forbidden_bigrams,
+                                  c11l2_threshold_by_l[i]);
+        (*results_ptr)[i][8] = applyBigramsCriteria12(
+            (*texts_ptr)[i], forbidden_bigrams, statistics);
+        (*results_ptr)[i][9] = applyBigramCriteria13(
+            (*texts_ptr)[i], forbidden_bigrams, statistics);
+        (*results_ptr)[i][10] = applyBigramCriteria30(
+            (*texts_ptr)[i], statistics, config.c30l2_threshold[i]);
+        (*results_ptr)[i][11] =
+            applyBigramCriteria51((*texts_ptr)[i], statistics,
+                                  config.c51l2_threshold[i],
+                                  config.c51l2_j[i]);
+      });
+    }
+  };
+
+  enqueue_criteria_for_texts(plain_texts, plain_results);
+  enqueue_criteria_for_texts(vigenere_texts_1, vig1_results);
+  enqueue_criteria_for_texts(vigenere_texts_5, vig5_results);
+  enqueue_criteria_for_texts(vigenere_texts_10, vig10_results);
+  enqueue_criteria_for_texts(affine_symbol_texts, affine_sym_results);
+  enqueue_criteria_for_texts(affine_bigram_texts, affine_bi_results);
+  enqueue_criteria_for_texts(random_texts, random_results);
 
   for (auto& worker : threadPool) {
     if (worker.joinable()) {
       worker.join();
     }
   }
+
+  auto count_to_rate = [](uint32_t count, std::size_t total) -> double {
+    if (total == 0U) {
+      return 0.0;
+    }
+    return static_cast<double>(count) / static_cast<double>(total);
+  };
+
+  std::array<std::array<double, kCriteriaCount>, kLCount> plain_fp{};
+  for (std::size_t i = 0; i < kLCount; i++) {
+    const auto total = plain_texts[i].size();
+    for (std::size_t c = 0; c < kCriteriaCount; c++) {
+      plain_fp[i][c] = count_to_rate(plain_results[i][c].h1_count, total);
+    }
+  }
+
+  // Map per-L thresholds to each criteria for logging.
+  auto thresholds_for_log =
+      [&](std::size_t idx,
+          std::size_t criteria_idx) -> std::pair<double, std::size_t> {
+    switch (criteria_idx) {
+      case 1:  // c11sy
+        return {static_cast<double>(c11l1_threshold_by_l[idx]), 0U};
+      case 4:  // c30sy
+        return {config.c30l1_threshold[idx], 0U};
+      case 5:  // c51sy
+        return {static_cast<double>(config.c51l1_threshold[idx]),
+                config.c51l1_j[idx]};
+      case 7:  // c11bi
+        return {static_cast<double>(c11l2_threshold_by_l[idx]), 0U};
+      case 10:  // c30bi
+        return {config.c30l2_threshold[idx], 0U};
+      case 11:  // c51bi
+        return {static_cast<double>(config.c51l2_threshold[idx]),
+                config.c51l2_j[idx]};
+      default:
+        return {0.0, 0U};
+    }
+  };
+
+  auto log_results = [&](std::size_t idx, std::size_t criteria_idx,
+                         const char* text_id, const CriteriaResult& res,
+                         double fp, double fn) {
+    const auto& meta = kCriteriaMeta[criteria_idx];
+    const auto [threshold, j] = thresholds_for_log(idx, criteria_idx);
+    auto serialized_results = SerializedResult{
+        L_ARR[idx],   meta.lgram_size, meta.id, text_id,
+        res.h0_count, res.h1_count,    fp,      fn,
+        threshold,    j,
+    };
+    logs.crtireia_stats_csv->info("{}", serialized_results);
+  };
+
+  auto log_for_texts = [&](const char* text_id, const auto& texts,
+                           const CriteriaMatrix& results, bool is_plain) {
+    for (std::size_t i = 0; i < texts.size(); i++) {
+      const auto total = texts[i].size();
+      for (std::size_t c = 0; c < kCriteriaCount; c++) {
+        // False positives are counted on plaintexts; false negatives on ciphertexts.
+        const double fp = plain_fp[i][c];
+        const double fn =
+            is_plain ? 0.0 : count_to_rate(results[i][c].h0_count, total);
+        log_results(i, c, text_id, results[i][c], fp, fn);
+      }
+    }
+  };
+
+  log_for_texts("plain", plain_texts, plain_results, true);
+  log_for_texts("vig1", vigenere_texts_1, vig1_results, false);
+  log_for_texts("vig5", vigenere_texts_5, vig5_results, false);
+  log_for_texts("vig10", vigenere_texts_10, vig10_results, false);
+  log_for_texts("affine_sym", affine_symbol_texts, affine_sym_results, false);
+  log_for_texts("affine_bi", affine_bigram_texts, affine_bi_results, false);
+  log_for_texts("random", random_texts, random_results, false);
+
+  auto log_structural_stats = [&](const char* text_id, const auto& texts,
+                                  const auto& compressed_texts) {
+    for (std::size_t i = 0; i < texts.size(); i++) {
+      double avg_bits_per_byte = 0.0;
+      const auto total = compressed_texts[i].size();
+      if (total != 0U) {
+        for (std::size_t j = 0; j < total; j++) {
+          avg_bits_per_byte += lab2::getBitsPerSymbol(
+              texts[i][j].size(), compressed_texts[i][j].size());
+        }
+        avg_bits_per_byte /= static_cast<double>(total);
+      }
+
+      logs.cli->info("Avg bits per byte for text of type {} of size {} : {}",
+                     text_id, L_ARR[i], avg_bits_per_byte);
+      // Log structural thresholds alongside the averaged compression stats.
+      logs.criteria_structural_csv->info(
+          "{},{},{},{}", text_id, L_ARR[i], avg_bits_per_byte,
+          config.c_structural_threshold[i]);
+    }
+  };
+
+  log_structural_stats("plain", plain_texts, compressed_plain_texts);
+  log_structural_stats("vig1", vigenere_texts_1, compressed_vigenere_texts_1);
+  log_structural_stats("vig5", vigenere_texts_5, compressed_vigenere_texts_5);
+  log_structural_stats("vig10", vigenere_texts_10,
+                       compressed_vigenere_texts_10);
+  log_structural_stats("affine_sym", affine_symbol_texts,
+                       compressed_affine_symbol_texts);
+  log_structural_stats("affine_bi", affine_bigram_texts,
+                       compressed_affine_bigram_texts);
+  log_structural_stats("random", random_texts, compressed_random_texts);
 
   return 0;
 }

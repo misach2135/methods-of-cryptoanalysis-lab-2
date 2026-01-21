@@ -1,364 +1,219 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 from __future__ import annotations
 
-import argparse
-import re
-import sys
-from io import StringIO
+import math
 from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 
+CRITERIA_BASE_NAMES = {
+    "c10": "Criterion 10",
+    "c11": "Criterion 11",
+    "c12": "Criterion 12",
+    "c13": "Criterion 13",
+    "c30": "Criterion 30",
+    "c51": "Criterion 51",
+}
 
-CRIT_RE = re.compile(r"c(\d+)")
+TEXT_ID_NAMES = {
+    "plain": "Plain text",
+    "vig1": "Vigenère (key length 1)",
+    "vig5": "Vigenère (key length 5)",
+    "vig10": "Vigenère (key length 10)",
+    "affine_sym": "Affine cipher (symbolic)",
+    "affine_bi": "Affine cipher (bigrams)",
+}
 
+# =======================
+# HARD-CODED PATHS
+# =======================
+CSV_FILES = [
+    Path("./criteria_stats.csv"),
+]
 
-def text_id_sort_key(text_id: str) -> tuple[int, int]:
-    # Primary order: plain -> vigenere -> affine -> random -> fallback
-    # Secondary order inside vigenere: r=1,5,10; inside affine: sym then bi
-    if text_id == "plain":
-        return (0, 0)
-
-    if text_id.startswith("vig"):
-        # vig1, vig5, vig10
-        m = re.fullmatch(r"vig(\d+)", text_id)
-        r = int(m.group(1)) if m else 10**9
-        return (1, r)
-
-    if text_id.startswith("affine_"):
-        # affine_sym, affine_bi
-        sub = {"sym": 0, "bi": 1}
-        suffix = text_id.split("_", 1)[1]
-        return (2, sub.get(suffix, 10**9))
-
-    if text_id == "random":
-        return (3, 0)
-
-    # Compressed variants: keep same semantic order, but after the uncompressed ones
-    if text_id == "c_plain":
-        return (4, 0)
-
-    if text_id.startswith("c_vig"):
-        m = re.fullmatch(r"c_vig(\d+)", text_id)
-        r = int(m.group(1)) if m else 10**9
-        return (5, r)
-
-    if text_id.startswith("c_affine_"):
-        sub = {"sym": 0, "bi": 1}
-        suffix = text_id.split("_", 2)[2] if text_id.count("_") >= 2 else ""
-        return (6, sub.get(suffix, 10**9))
-
-    if text_id == "c_random":
-        return (7, 0)
-
-    return (99, 0)
+OUTPUT_DIR = Path("./report/")
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def fmt_num(v: object, *, decimals: int = 6) -> str:
-    """
-    Format numbers for LaTeX tables:
-    - keep floats (no scientific notation for typical lab values)
-    - drop trailing zeros
-    - show integers as '1', '0'
-    """
-    if v is None:
-        return "0"
-
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return latex_escape(str(v))
-
-    # Avoid "-0"
-    if abs(x) < 0.5 * 10 ** (-decimals):
-        x = 0.0
-
-    # If it's effectively an integer, print as int
-    if abs(x - round(x)) < 1e-12:
-        return str(int(round(x)))
-
-    s = f"{x:.{decimals}f}".rstrip("0").rstrip(".")
-    return s if s else "0"
-
-
-def table_title_from_text_id(text_id: str) -> str:
-    """
-    Map internal text_id to human-readable LaTeX table title.
-    """
-
-    mapping = {
-        # plain
-        "plain": "Вихідний (неспотворений) текст",
-        # vigenere
-        "vig1": "Спотворення за допомогою шифру Віженера ($r = 1$)",
-        "vig5": "Спотворення за допомогою шифру Віженера ($r = 5$)",
-        "vig10": "Спотворення за допомогою шифру Віженера ($r = 10$)",
-        # affine
-        "affine_sym": "Спотворення за допомогою афінного шифру (1-грамний)",
-        "affine_bi": "Спотворення за допомогою афінного шифру (2-грамний)",
-        # random
-        "random": "Випадковий текст",
-        # compressed plain
-        "c_plain": "Стиснений вихідний текст",
-        # compressed vigenere
-        "c_vig1": "Стиснений текст після шифру Віженера ($r = 1$)",
-        "c_vig5": "Стиснений текст після шифру Віженера ($r = 5$)",
-        "c_vig10": "Стиснений текст після шифру Віженера ($r = 10$)",
-        # compressed affine
-        "c_affine_sym": "Стиснений текст після афінного шифру (1-грамний)",
-        "c_affine_bi": "Стиснений текст після афінного шифру (2-грамний)",
-        # compressed random
-        "c_random": "Стиснений випадковий текст",
-    }
-
-    try:
-        return mapping[text_id]
-    except KeyError:
-        return f"Невідомий тип тексту: \\texttt{{{text_id}}}"
-
-
-def parse_criteria_num(criteria_id: str) -> int:
-    m = CRIT_RE.search(str(criteria_id))
-    if not m:
-        raise ValueError(
-            f"Can't parse criteria number from criteria_id={criteria_id!r}"
-        )
-    return int(m.group(1))
-
-
-def read_input_csv(path: Optional[str]) -> pd.DataFrame:
-    if path is None or path == "-":
-        raw = sys.stdin.read()
-        if not raw.strip():
-            raise ValueError("No input provided on stdin.")
-        return pd.read_csv(StringIO(raw))
-    return pd.read_csv(path)
-
-
-def build_pivot(df: pd.DataFrame) -> pd.DataFrame:
-    required = ["l", "lgramSize", "criteria_id", "text_id", "fp", "fn"]
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns: {missing}")
-
-    work = df.copy()
-    work["l"] = work["l"].astype(int)
-    work["lgramSize"] = work["lgramSize"].astype(int)
-    work["criteria_num"] = work["criteria_id"].map(parse_criteria_num)
-
-    # IMPORTANT: keep fp/fn as float
-    work["fp"] = pd.to_numeric(work["fp"], errors="raise").astype(float)
-    work["fn"] = pd.to_numeric(work["fn"], errors="raise").astype(float)
-
-    agg = work.groupby(["text_id", "l", "criteria_num", "lgramSize"], as_index=False)[
-        ["fp", "fn"]
-    ].sum()
-
-    pv = agg.pivot_table(
-        index=["text_id", "l", "criteria_num"],
-        columns="lgramSize",
-        values=["fp", "fn"],
-        aggfunc="sum",
-        fill_value=0.0,  # float
-    )
-
-    pv.columns = [f"{metric}_{gram}" for (metric, gram) in pv.columns.to_flat_index()]
-    pv = pv.reset_index()
-
-    for col in ("fp_1", "fn_1", "fp_2", "fn_2"):
-        if col not in pv.columns:
-            pv[col] = 0.0
-
-    pv = pv[["text_id", "l", "criteria_num", "fp_1", "fn_1", "fp_2", "fn_2"]].copy()
-    pv = pv.sort_values(["text_id", "l", "criteria_num"], kind="mergesort").reset_index(
-        drop=True
-    )
-
-    # Ensure float dtype
-    for c in ["fp_1", "fn_1", "fp_2", "fn_2"]:
-        pv[c] = pd.to_numeric(pv[c], errors="coerce").fillna(0.0).astype(float)
-
-    return pv
-
-
+# =======================
+# HELPERS
+# =======================
 def latex_escape(s: str) -> str:
-    # Мінімально потрібно для твоїх назв
     return (
         s.replace("\\", r"\textbackslash{}")
         .replace("&", r"\&")
         .replace("%", r"\%")
-        .replace("_", r"\_")
+        .replace("$", r"\$")
         .replace("#", r"\#")
+        .replace("_", r"\_")
         .replace("{", r"\{")
         .replace("}", r"\}")
-        .replace("~", r"\textasciitilde{}")
-        .replace("^", r"\textasciicircum{}")
     )
 
 
-def render_rows_with_multirow_by_L(pv_text: pd.DataFrame) -> list[str]:
-    lines: list[str] = []
-
-    pv_text = pv_text.sort_values(["l", "criteria_num"], kind="mergesort").reset_index(
-        drop=True
-    )
-
-    for L, grpL in pv_text.groupby("l", sort=True):
-        grpL = grpL.sort_values(["criteria_num"], kind="mergesort").reset_index(
-            drop=True
-        )
-        n = len(grpL)
-        if n == 0:
-            continue
-
-        for i, row in enumerate(grpL.itertuples(index=False)):
-            crit = int(row.criteria_num)
-            fp1 = fmt_num(row.fp_1)
-            fn1 = fmt_num(row.fn_1)
-            fp2 = fmt_num(row.fp_2)
-            fn2 = fmt_num(row.fn_2)
-
-            if i == 0:
-                lines.append(
-                    rf"\multirow{{{n}}}{{*}}{{{int(L)}}} & {crit} & {fp1} & {fn1} & {fp2} & {fn2} \\"
-                )
-            else:
-                lines.append(rf" & {crit} & {fp1} & {fn1} & {fp2} & {fn2} \\")
-        lines.append(r"\hline")  # only once per L-block
-
-    return lines
+def is_nonzero(x) -> bool:
+    try:
+        v = float(x)
+        return not math.isclose(v, 0.0)
+    except Exception:
+        return False
 
 
-def render_table_for_text(pv_text: pd.DataFrame, title: str) -> str:
-    lines: list[str] = []
-    lines.append(r"\begin{center}")
-    lines.append(r"\renewcommand{\arraystretch}{1.2}")
-    lines.append(r"\setlength{\tabcolsep}{6pt}")
-    lines.append(r"\begin{tabular}{|c|l||c|c||c|c|}")
-    lines.append(r"\hline")
-    lines.append(r"\multicolumn{6}{|c|}{" + latex_escape(title) + r"} \\")
-    lines.append(r"\hline")
-    lines.append(
-        r"\textit{L} & \textit{Номер критерію} & "
-        r"\textit{FP} ($l=1$) & \textit{FN} ($l=1$) & "
-        r"\textit{FP} ($l=2$) & \textit{FN} ($l=2$) \\"
-    )
-    lines.append(r"\hline")
-
-    lines.extend(render_rows_with_multirow_by_L(pv_text))
-
-    lines.append(r"\end{tabular}")
-    lines.append(r"\end{center}")
-    lines.append("")
-    return "\n".join(lines)
+def fmt_float(x, digits: int = 6) -> str:
+    try:
+        v = float(x)
+        return f"{v:.{digits}f}".rstrip("0").rstrip(".")
+    except Exception:
+        return "-"
 
 
-def render_table_for_L(grp: pd.DataFrame, title: str) -> str:
-    grp = grp.sort_values(["criteria_num"], kind="mergesort").reset_index(drop=True)
-    n = len(grp)
-
-    lines: list[str] = []
-    lines.append(r"\begin{center}")
-    lines.append(r"\renewcommand{\arraystretch}{1.2}")
-    lines.append(r"\setlength{\tabcolsep}{6pt}")
-    lines.append(r"\begin{tabular}{|c|l||c|c||c|c|}")
-    lines.append(r"\hline")
-    lines.append(r"\multicolumn{6}{|c|}{" + latex_escape(title) + r"} \\")
-    lines.append(r"\hline")
-    lines.append(
-        r"\textit{L} & \textit{Номер критерію} & "
-        r"\textit{FP} ($l=1$) & \textit{FN} ($l=1$) & "
-        r"\textit{FP} ($l=2$) & \textit{FN} ($l=2$) \\"
-    )
-    lines.append(r"\hline")
-
-    if n == 0:
-        lines.append(r"\end{tabular}")
-        lines.append(r"\end{center}")
-        lines.append("")
-        return "\n".join(lines)
-
-    L0 = int(grp.iloc[0].l)
-
-    for i, row in enumerate(grp.itertuples(index=False)):
-        crit = int(row.criteria_num)
-        fp1 = fmt_num(row.fp_1)
-        fn1 = fmt_num(row.fn_1)
-        fp2 = fmt_num(row.fp_2)
-        fn2 = fmt_num(row.fn_2)
-
-        if i == 0:
-            lines.append(
-                rf"\multirow{{{n}}}{{*}}{{{L0}}} & {crit} & {fp1} & {fn1} & {fp2} & {fn2} \\"
-            )
-        else:
-            lines.append(rf" & {crit} & {fp1} & {fn1} & {fp2} & {fn2} \\")
-
-    lines.append(r"\hline")
-    lines.append(r"\end{tabular}")
-    lines.append(r"\end{center}")
-    lines.append("")
-    return "\n".join(lines)
-
-
-def to_latex_document(pv: pd.DataFrame) -> str:
+# =======================
+# LATEX RENDERING
+# =======================
+def build_params_math(prefix: str, threshold_val, j_val) -> list[str]:
     parts = []
-    parts.append(r"\documentclass[a4paper,12pt]{article}")
-    parts.append(r"\usepackage[utf8]{inputenc}")
-    parts.append(r"\usepackage[T2A]{fontenc}")
-    parts.append(r"\usepackage[ukrainian]{babel}")
-    parts.append(r"\usepackage{multirow}")
-    parts.append(r"\usepackage[margin=1in]{geometry}")
-    parts.append(r"\begin{document}")
-    parts.append("")
-
-    # Custom order for text_id
-    text_ids = sorted(pv["text_id"].unique(), key=text_id_sort_key)
-
-    for text_id in text_ids:
-        pv_text = pv[pv["text_id"] == text_id]
-        if pv_text.empty:
-            continue
-
-        title_prefix = table_title_from_text_id(text_id)
-
-        for L, grp in pv_text.groupby("l", sort=True):
-            title = f"{title_prefix} (L = {int(L)})"
-            parts.append(render_table_for_L(grp, title))
-
-    parts.append(r"\end{document}")
-    parts.append("")
-    return "\n".join(parts)
+    if is_nonzero(threshold_val):
+        parts.append(rf"\theta_{{{prefix}}}=" + fmt_float(threshold_val))
+    if is_nonzero(j_val):
+        parts.append(rf"j_{{{prefix}}}=" + str(int(j_val)))
+    return parts
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser(
-        description="Sort criteria results by L, lgramSize and criteria; export LaTeX tables."
+def build_name_with_params(crit_base: str, sy: dict | None, bi: dict | None) -> str:
+    base_name = CRITERIA_BASE_NAMES.get(crit_base, crit_base)
+    base_tex = latex_escape(base_name)
+
+    params = []
+    if sy is not None:
+        params.extend(build_params_math("sy", sy.get("threshold", 0), sy.get("j", 0)))
+    if bi is not None:
+        params.extend(build_params_math("bi", bi.get("threshold", 0), bi.get("j", 0)))
+
+    if not params:
+        return base_tex
+
+    # thresholds/j are rendered right next to the name, in math mode
+    return base_tex + r" ($" + ", ".join(params) + r"$)"
+
+
+def split_criteria_id(criteria_id: str) -> tuple[str, str]:
+    # "c30sy" -> ("c30", "sy"), "c51bi" -> ("c51", "bi")
+    if len(criteria_id) < 4:
+        return criteria_id, ""
+    base = criteria_id[:3]  # "c30"
+    kind = criteria_id[3:]  # "sy" / "bi"
+    return base, kind
+
+
+def build_param_tex(threshold_val, j_val) -> str:
+    params = []
+    if is_nonzero(threshold_val):
+        params.append(r"\theta=" + fmt_float(threshold_val))
+    if is_nonzero(j_val):
+        params.append(r"j=" + str(int(j_val)))
+    if not params:
+        return ""
+    return r" ($" + ", ".join(params) + r"$)"
+
+
+def render_table_for_text_id(df: pd.DataFrame, text_id: str) -> str:
+    # Expect both sy/bi for same text_id, but tolerate missing.
+    # Build rows indexed by base criterion ("c10", "c11", ...)
+    rows: dict[str, dict[str, dict[str, object]]] = {}
+
+    for _, r in df.iterrows():
+        crit_base, kind = split_criteria_id(str(r["criteria_id"]))
+        if crit_base not in rows:
+            rows[crit_base] = {}
+        rows[crit_base][kind] = {
+            "fp": r.get("fp", float("nan")),
+            "fn": r.get("fn", float("nan")),
+            "threshold": r.get("threshold", 0),
+            "j": r.get("j", 0),
+        }
+
+    # Deterministic order by numeric part: c10, c11, c12, c13, c30, c51...
+    def crit_sort_key(c: str) -> tuple[int, str]:
+        try:
+            return (int(c[1:]), c)
+        except Exception:
+            return (10**9, c)
+
+    ordered_bases = sorted(rows.keys(), key=crit_sort_key)
+    # L is constant inside one table – take the first value
+    L_val = int(df["l"].iloc[0])
+    text_title = TEXT_ID_NAMES.get(str(text_id), str(text_id))
+
+    lines = []
+    lines.append(r"\begin{center}")
+    lines.append(r"\renewcommand{\arraystretch}{1.2}")
+    lines.append(r"\setlength{\tabcolsep}{6pt}")
+    lines.append(r"\begin{tabular}{|l||c|c||c|c|}")
+    lines.append(r"\hline")
+    lines.append(
+        r"\multicolumn{5}{|c|}{\textbf{Text: "
+        + latex_escape(text_title)
+        + f", $L={L_val}$"
+        + r"}} \\"
     )
-    ap.add_argument(
-        "--in", dest="in_path", default="-", help="Input CSV path or '-' for stdin"
+    lines.append(r"\hline")
+    lines.append(
+        r"\textbf{Criteria} & \multicolumn{2}{c||}{\textbf{Symbolic}} "
+        r"& \multicolumn{2}{c|}{\textbf{Bigram}} \\"
     )
-    ap.add_argument(
-        "--out", dest="out_path", default="report.tex", help="Output .tex path"
-    )
-    ap.add_argument(
-        "--title",
-        dest="title",
-        default="Results",
-        help="Table title prefix",
-    )
-    args = ap.parse_args()
+    lines.append(r"\hline")
+    lines.append(r" & \textbf{FP} & \textbf{FN} & \textbf{FP} & \textbf{FN} \\")
+    lines.append(r"\hline")
 
-    df = read_input_csv(args.in_path)
-    pv = build_pivot(df)
-    tex = to_latex_document(pv)
+    for crit_base in ordered_bases:
+        sy = rows[crit_base].get("sy")
+        bi = rows[crit_base].get("bi")
 
-    Path(args.out_path).write_text(tex, encoding="utf-8")
-    return 0
+        crit_cell = build_name_with_params(crit_base, sy, bi)
+
+        sy_fp = fmt_float(sy["fp"]) if sy is not None else "-"
+        sy_fn = fmt_float(sy["fn"]) if sy is not None else "-"
+        bi_fp = fmt_float(bi["fp"]) if bi is not None else "-"
+        bi_fn = fmt_float(bi["fn"]) if bi is not None else "-"
+
+        lines.append(
+            crit_cell
+            + " & "
+            + sy_fp
+            + " & "
+            + sy_fn
+            + " & "
+            + bi_fp
+            + " & "
+            + bi_fn
+            + r" \\"
+        )
+
+    lines.append(r"\hline")
+    lines.append(r"\end{tabular}")
+    lines.append(r"\end{center}")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+# =======================
+# MAIN
+# =======================
+def main() -> None:
+    for csv_path in CSV_FILES:
+        df = pd.read_csv(csv_path)
+
+        out_path = OUTPUT_DIR / f"{csv_path.stem}_tables.tex"
+
+        chunks = []
+        for (text_id, L_val), grp in df.groupby(["text_id", "l"], sort=False):
+            chunks.append(render_table_for_text_id(grp, str(text_id)))
+
+        out_path.write_text("\n".join(chunks), encoding="utf-8")
+
+        print(f"[OK] Written: {out_path}")
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
